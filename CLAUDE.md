@@ -12,14 +12,63 @@ treat the PRD's hard rules as binding, not suggestions to redesign.
 
 ## What This Builds
 
-A DevOps-job-application agent: scrapes DevOps Engineer postings, scores each against the base
+An AI-Data-Engineer-job-application agent: scrapes AI Data Engineer postings, scores each against the base
 resume, tailors a resume for every job scoring 8+/10, logs qualifying jobs to a Google Sheet, saves
 tailored resumes to per-job folders on Desktop, and runs unattended once daily on Modal.
 
+## Commands
+
+No build step, lint config, or test suite exists in this repo — it's a script pipeline, not a
+package. `requirements.txt` is deliberately minimal (`requests`, `python-dotenv`); `gws` and
+`modal` are separate CLI installs, not pip deps.
+
+Run the pipeline manually, step by step, in order (each writes to `output/`, consumed by the next):
+
+```bash
+python3 scripts/scrape_jobs.py        # -> output/raw_jobs.json
+python3 scripts/score_jobs.py         # -> output/scored_jobs.json
+python3 scripts/tailor_job.py         # automated (OpenRouter) tailoring -> output/tailored_jobs.json, Drive
+python3 scripts/company_research.py   # mutates output/tailored_jobs.json in place, adds company_notes
+python3 scripts/write_sheet.py        # -> Google Sheet
+```
+
+For the interactive tailoring path (Desktop output instead of Drive), use the `tailor-resume` Skill
+inside a live Claude Code session instead of `tailor_job.py` — see Architecture below for why these
+are two separate code paths.
+
+Test the whole thing end to end through Modal without deploying it: `modal run modal_app.py`.
+Deploy the daily cron: `modal deploy modal_app.py` (requires `job-apply-agent-secrets` and
+`gws-credentials` Modal secrets — see README.md).
+
+## Architecture
+
+Two independent tailoring paths exist and must not be merged into one:
+
+- **Interactive** (`.claude/skills/tailor-resume/SKILL.md`, run inside a live Claude Code session):
+  writes `output/tailored/{folder}.md` via the `Write` tool, which `.claude/hooks/resume_hook.py`
+  (wired in `.claude/settings.json` as a `PreToolUse` hook on `Write`, filtered to paths under
+  `output/tailored/`) validates before the write is allowed. Delivers to `~/Desktop/{folder}/`.
+- **Automated** (`scripts/tailor_job.py`, used by `modal_app.py`): same tailoring prompt and same
+  hard rule, but via one OpenRouter call instead of live Claude reasoning (no Anthropic API key
+  needed, so it can run headless on Modal's cron). Validates inline by calling `validate()` directly
+  since there's no Claude Code session for a hook to attach to. Delivers to Google Drive
+  (`google_drive_folder_id`) instead of Desktop, since Modal's container has no Desktop to write to.
+
+Both paths call `scripts/validate_resume.py` for the actual pass/fail rule — it's the single source
+of truth so the two paths can't drift apart — and both append to `output/tailored_jobs.json`, though
+with different field shapes for the resume location (interactive: `desktop_folder`/`desktop_file`;
+automated: `drive_folder_link`/`resume_link`). `scripts/write_sheet.py` reads either shape
+uniformly (`job.get("resume_link") or job.get("desktop_file", "")`).
+
+`gws` credentials also differ by environment: locally they're Keychain-encrypted and `gws auth
+setup` is interactive (can't be automated); `modal_app.py` has no Keychain, so it materializes a
+plain `~/.config/gws/credentials.json` at run time from the `gws-credentials` Modal secret instead.
+
 ## Pipeline (build in this order — each step's output feeds the next)
 
-1. **Scrape** — Apify actor (free tier) for LinkedIn DevOps Engineer postings, remote/hybrid,
-   full-time. Output: `{title, company, link, description, posted_date}`.
+1. **Scrape** — Apify actor `curious_coder/linkedin-jobs-scraper` (free tier) for LinkedIn AI Data
+   Engineer postings, remote/hybrid, full-time. Output:
+   `{title, company, link, description, posted_date}`.
 2. **Score + Filter** — score each job 1-10 against `resume/base_resume.md`, extracting
    `matched_must_haves`/`missing_must_haves` as part of the same call (no separate parse step).
    **Hard cutoff: only 8+ continues.** Log reject count alongside qualified count (e.g. "10
@@ -48,12 +97,15 @@ tailored resumes to per-job folders on Desktop, and runs unattended once daily o
 
 ## Hard Rules
 
-- **8+/10 cutoff is non-negotiable** — nothing below it reaches tailoring, Sheet, or Desktop/Drive.
+- **8+/10 cutoff is non-negotiable** — nothing below it reaches tailoring, Sheet, or local/Drive
+  folders.
 - **No fabrication** in tailored resumes — reorder/reword existing content only.
 - **No auto-submitting applications** — the agent prepares; a human clicks apply.
-- **No real candidate data** — this project never touches SSK's actual job-application pipeline;
-  `resume/base_resume.md` is a synthetic stand-in resume.
-- **Single niche** — DevOps Engineer only, for this demo.
+- **Resume identity** — `resume/base_resume.md` now holds Chidvilas Parusha's real resume (the
+  project originally shipped with a synthetic "Sai Santosh Kumar" stand-in; that's been replaced
+  for the user's own personal use). Since it's real personal data (name, email, phone, LinkedIn),
+  keep it out of any public remote — see `.gitignore`.
+- **Single niche** — AI Data Engineer only, for this demo.
 - Wrap the scheduled Modal run in try/except; on any failure, send a Telegram alert named
   `JOB-APPLY-AGENT — WHAT BROKE`, then re-raise. No silent failures.
 
@@ -101,7 +153,10 @@ the write if required sections are missing or placeholder text remains), then bu
 via `gws`, formats it with `scripts/format_resume_doc.py` (converts the markdown structure into
 real bold headers/bullets/italics — **never use `gws docs +write`** with raw markdown text, it
 inserts `#`/`##`/`-` as literal characters instead of formatting), exports to PDF into
-`~/Desktop/{company}-{slug}/Sai Santosh Kumar Resume.pdf`, and deletes the intermediate Doc.
+`C:\Users\chidv\OneDrive\Documents\documents\docs new\Chidvilas Resume\Resume\{Company} - {Job
+Title}\Chidvilas Parusha {Job Title} Resume.pdf`, and deletes the intermediate Doc. The automated
+Modal path (`scripts/tailor_job.py`) mirrors this same folder/filename convention but uploads to a
+Google Drive folder instead, since Modal has no access to this local path.
 `scripts/write_sheet.py` then logs each `status: "saved"` entry from `output/tailored_jobs.json` to
 the "Job Application Tracker" Google Sheet (id cached in `.env` as `google_sheet_id`), deduped by
 job link, with `Status` starting at `"Not Applied"` for manual tracking.
@@ -118,7 +173,8 @@ filename, an absolute path is rejected.
 - Tailor: output resume has no placeholder text and passes the validation hook.
 - Sheet: row count matches qualifying-job count; every row has a working job link and resume
   reference.
-- Desktop: folder count matches qualifying-job count; each folder has exactly one resume file.
+- Local Resume folder: folder count matches qualifying-job count; each folder has exactly one
+  resume file.
 - Headless run: `claude -p` completes with the same output as the interactive run, restricted to
   the allowed tools.
 - Modal: scheduled function deploys, manual trigger runs end to end, forced failure produces the

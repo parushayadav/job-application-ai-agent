@@ -12,6 +12,7 @@ Drive folder, created once during provisioning) in .env.
 import json
 import os
 import re
+import shutil
 import subprocess
 from pathlib import Path
 
@@ -35,13 +36,15 @@ Hard rule: never invent experience, employers, tools, dates, or metrics. Only re
 reword content that already exists in the base resume below. If the job wants something the
 resume doesn't have, leave it out.
 
-Preserve the section headers exactly: ## Summary, ## Skills, ## Experience, ## Education,
-## Certifications.
+Preserve the section headers exactly: ## Summary, ## Skills, ## Experience, ## Projects,
+## Education, ## Certifications.
 - Summary: reword to mirror the job's language/keywords.
 - Skills: reorder so items matching the job's matched requirements appear first.
 - Experience: reorder/re-emphasize existing bullets toward what the job asks for. Do not alter
   dates, employers, titles, or the substance of any bullet -- only reorder bullets and lightly
   reword phrasing, never metrics.
+- Projects: carry over unchanged, but reorder bullets to surface whichever are most relevant to
+  this job.
 - Education and Certifications: carry over unchanged.
 
 Respond with ONLY the tailored resume in markdown, no commentary, no code fences.
@@ -58,15 +61,35 @@ __DESCRIPTION__
 """
 
 
+def _resolve_gws_command():
+    gws_path = shutil.which("gws")
+    if gws_path and gws_path.lower().endswith(".cmd"):
+        # See format_resume_doc.py: npm's Windows .cmd shim routes through cmd.exe, which
+        # caps command lines at ~8191 chars -- too small for a full resume's batchUpdate
+        # JSON. Call the CLI's real JS entrypoint through node.exe directly instead.
+        run_js = Path(gws_path).parent / "node_modules" / "@googleworkspace" / "cli" / "run.js"
+        if run_js.exists():
+            return [shutil.which("node") or "node", str(run_js)]
+    return [gws_path or "gws"]
+
+
+GWS_CMD = _resolve_gws_command()
+
+
 def gws(*args, cwd=None):
-    result = subprocess.run(["gws", *args], capture_output=True, text=True, cwd=cwd)
+    result = subprocess.run([*GWS_CMD, *args], capture_output=True, text=True, cwd=cwd)
     if result.returncode != 0:
         raise RuntimeError(f"gws {' '.join(args)} failed: {result.stderr}")
     return json.loads(result.stdout) if result.stdout.strip() else {}
 
 
-def slugify(title):
-    return re.sub(r"-+", "-", re.sub(r"[^a-z0-9]+", "-", title.lower())).strip("-")
+INVALID_FS_CHARS = re.compile(r'[<>:"/\\|?*]')
+
+
+def sanitize_for_filesystem(text):
+    """Strip characters Windows forbids in file/folder names, collapse whitespace."""
+    cleaned = INVALID_FS_CHARS.sub("", text)
+    return re.sub(r"\s+", " ", cleaned).strip()
 
 
 def tailor_text(job, resume_text, api_key):
@@ -82,26 +105,32 @@ def tailor_text(job, resume_text, api_key):
     resp = requests.post(
         OPENROUTER_URL,
         headers={"Authorization": f"Bearer {api_key}"},
-        json={"model": MODEL, "messages": [{"role": "user", "content": prompt}]},
+        json={
+            "model": MODEL,
+            "messages": [{"role": "user", "content": prompt}],
+            # See score_jobs.py: this model's unbounded chain-of-thought can exhaust its
+            # reasoning budget and return content: null instead of the tailored resume.
+            "reasoning": {"enabled": False},
+        },
         timeout=120,
     )
     resp.raise_for_status()
     return resp.json()["choices"][0]["message"]["content"].strip()
 
 
-def create_job_folder(company, slug, parent_folder_id):
+def create_job_folder(folder_name, parent_folder_id):
     folder = gws("drive", "files", "create", "--params", json.dumps({"fields": "id,webViewLink"}),
                  "--json", json.dumps({
-                     "name": f"{company}-{slug}",
+                     "name": folder_name,
                      "mimeType": "application/vnd.google-apps.folder",
                      "parents": [parent_folder_id],
                  }))
     return folder["id"], folder["webViewLink"]
 
 
-def build_and_upload_resume(markdown_path, folder_id, tmp_pdf_path):
+def build_and_upload_resume(markdown_path, folder_id, tmp_pdf_path, resume_title):
     doc = gws("docs", "documents", "create", "--json",
-              json.dumps({"title": "Sai Santosh Kumar Resume"}))
+              json.dumps({"title": resume_title}))
     doc_id = doc["documentId"]
 
     subprocess.run(
@@ -116,7 +145,7 @@ def build_and_upload_resume(markdown_path, folder_id, tmp_pdf_path):
     # fails unless we resolve symlinks here too before either subprocess call.
     export_dir = export_dir.resolve()
     result = subprocess.run(
-        ["gws", "drive", "files", "export", "--params",
+        [*GWS_CMD, "drive", "files", "export", "--params",
          json.dumps({"fileId": doc_id, "mimeType": "application/pdf"}),
          "--output", tmp_pdf_path.name],
         cwd=export_dir, capture_output=True, text=True,
@@ -126,13 +155,19 @@ def build_and_upload_resume(markdown_path, folder_id, tmp_pdf_path):
 
     uploaded = gws("drive", "files", "create", "--params", json.dumps({"fields": "id,webViewLink"}),
                     "--json", json.dumps({
-                        "name": "Sai Santosh Kumar Resume.pdf",
+                        "name": f"{resume_title}.pdf",
                         "parents": [folder_id],
                     }),
                     "--upload", tmp_pdf_path.name,
                     cwd=export_dir)
 
     gws("drive", "files", "delete", "--params", json.dumps({"fileId": doc_id}))
+    # The empty delete response gets written to a stray download.html in the cwd -- clean it
+    # up (--output /dev/null doesn't suppress this on Windows: it creates a literal file
+    # named "nul" via a raw path override instead of writing to the real null device).
+    stray_download = Path.cwd() / "download.html"
+    if stray_download.exists():
+        stray_download.unlink()
 
     return uploaded["webViewLink"]
 
@@ -150,8 +185,10 @@ if __name__ == "__main__":
 
     results = []
     for job in qualified:
-        slug = slugify(job["title"])
-        folder_name = f"{job['company']}-{slug}"
+        safe_company = sanitize_for_filesystem(job["company"])
+        safe_title = sanitize_for_filesystem(job["title"])
+        folder_name = f"{safe_company} - {safe_title}"
+        resume_title = f"Chidvilas Parusha {safe_title} Resume"
         try:
             text = tailor_text(job, resume_text, api_key)
             ok, reason = validate(text)
@@ -163,9 +200,9 @@ if __name__ == "__main__":
             md_path = tailored_dir / f"{folder_name}.md"
             md_path.write_text(text)
 
-            folder_id, folder_link = create_job_folder(job["company"], slug, parent_folder_id)
-            tmp_pdf_path = tmp_dir / folder_name / "Sai Santosh Kumar Resume.pdf"
-            resume_link = build_and_upload_resume(md_path, folder_id, tmp_pdf_path)
+            folder_id, folder_link = create_job_folder(folder_name, parent_folder_id)
+            tmp_pdf_path = tmp_dir / folder_name / f"{resume_title}.pdf"
+            resume_link = build_and_upload_resume(md_path, folder_id, tmp_pdf_path, resume_title)
 
             results.append({
                 "title": job["title"], "company": job["company"], "link": job["link"],

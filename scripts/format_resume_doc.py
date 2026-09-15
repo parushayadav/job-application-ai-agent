@@ -7,12 +7,30 @@ Usage: format_resume_doc.py <markdown_path> <document_id>
 """
 import json
 import re
+import shutil
 import subprocess
 import sys
+from pathlib import Path
+
+
+def _resolve_gws_command():
+    gws_path = shutil.which("gws")
+    if gws_path and gws_path.lower().endswith(".cmd"):
+        # npm's Windows shim is a .cmd batch file, which Windows can only launch via a
+        # nested cmd.exe -- and cmd.exe caps command lines at ~8191 chars, too small for a
+        # full resume's batchUpdate JSON. Call the CLI's real JS entrypoint through
+        # node.exe directly instead, which uses Windows' actual ~32K CreateProcess limit.
+        run_js = Path(gws_path).parent / "node_modules" / "@googleworkspace" / "cli" / "run.js"
+        if run_js.exists():
+            return [shutil.which("node") or "node", str(run_js)]
+    return [gws_path or "gws"]
+
+
+GWS_CMD = _resolve_gws_command()
 
 
 def gws(*args):
-    result = subprocess.run(["gws", *args], capture_output=True, text=True)
+    result = subprocess.run([*GWS_CMD, *args], capture_output=True, text=True)
     if result.returncode != 0:
         raise RuntimeError(f"gws {' '.join(args)} failed: {result.stderr}")
     return json.loads(result.stdout) if result.stdout.strip() else {}

@@ -62,6 +62,11 @@ def score_job(job, resume_text, api_key):
             "model": MODEL,
             "messages": [{"role": "user", "content": prompt}],
             "response_format": {"type": "json_object"},
+            # This model spends thousands of tokens on chain-of-thought before ever writing an
+            # answer, and unbounded reasoning frequently exhausts its budget and returns
+            # content: null (finish_reason "error") instead of the JSON. Disabling it gets a
+            # direct, fast answer.
+            "reasoning": {"enabled": False},
         },
         timeout=120,
     )

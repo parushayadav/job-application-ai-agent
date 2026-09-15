@@ -6,15 +6,16 @@ then point Claude at this file to start planning.
 ## 1. What This Is
 
 A job application AI agent, built from scratch for the final Claude Code Masterclass video. It
-finds DevOps Engineer postings, tailors a resume to each one, and hosts itself to run every day.
+finds AI Data Engineer postings, tailors a resume to each one, and hosts itself to run every day.
 
-**Candidate:** Sai Santosh Kumar, DevOps Engineer.
-Base resume lives at `resume/base_resume.md` (AWS/Terraform/Kubernetes/CI-CD, ~5 yrs experience).
+**Candidate:** Chidvilas Parusha, AI Data Engineer.
+Base resume lives at `resume/base_resume.md` (Azure/Databricks/Spark/Kafka/AI-ML pipelines, 8+ yrs
+experience).
 
 ## 2. Goal
 
 End to end, one run should:
-1. Pull fresh DevOps Engineer job postings.
+1. Pull fresh AI Data Engineer job postings.
 2. Score each against the base resume's skills/experience.
 3. Keep only jobs scoring 8+/10 fit.
 4. Tailor the resume per qualifying job (no fabrication).
@@ -26,7 +27,7 @@ End to end, one run should:
 
 ### 3.1 Scrape
 - Source: Apify (free tier), an actor that covers LinkedIn job search.
-- Niche: DevOps Engineer, remote or hybrid, full-time.
+- Niche: AI Data Engineer, remote or hybrid, full-time.
 - Output: list of `{title, company, link, description, posted_date}`.
 
 ### 3.2 Score + Filter
@@ -57,9 +58,11 @@ End to end, one run should:
 ### 3.6 Outputs
 - **Google Sheet** (one row per qualifying job): job title, company, job link, fit score, resume
   file link/path, status, timestamp.
-- **Per-job folder**, named `{company}-{job-title-slug}/`, containing the tailored resume file —
-  on the Desktop for the interactive path, in Google Drive for the automated Modal path (which has
-  no Desktop access). The Sheet row references this folder/file either way.
+- **Per-job folder**, named `{Company} - {Job Title}/`, containing the tailored resume file
+  (`Chidvilas Parusha {Job Title} Resume.pdf`) — under the local Resume folder
+  (`C:\Users\chidv\OneDrive\Documents\documents\docs new\Chidvilas Resume\Resume\`) for the
+  interactive path, in Google Drive for the automated Modal path (which has no access to the local
+  filesystem). The Sheet row references this folder/file either way.
 
 ### 3.7 Headless + Hosting
 - The automated path (`scripts/tailor_job.py`, `scripts/company_research.py`) uses OpenRouter
@@ -73,8 +76,9 @@ End to end, one run should:
 ## 4. Out of Scope
 
 - Auto-submitting applications. The agent prepares; a human still clicks apply.
-- Any real candidate data — this project never touches SSK's actual resume or real job pipeline.
-- Multiple niches — DevOps only, for the demo.
+- Sharing the real resume publicly — `resume/base_resume.md` now holds real personal data (name,
+  email, phone, LinkedIn); keep it out of any public remote (see `.gitignore`).
+- Multiple niches — AI Data Engineer only, for the demo.
 - Resume visual design/formatting polish beyond the text content.
 
 ## 5. Folder Structure (as built)
@@ -109,7 +113,8 @@ job-apply-agent/
 - Tailor: output resume has no placeholder text and passes the validation hook.
 - Sheet: row count matches qualifying-job count; every row has a working job link and resume
   reference.
-- Desktop: folder count matches qualifying-job count; each folder has exactly one resume file.
+- Local Resume folder: folder count matches qualifying-job count; each folder has exactly one
+  resume file.
 - Headless run: `claude -p` completes with the same output as the interactive run, restricted to
   the allowed tools.
 - Modal: scheduled function deploys, manual trigger runs end to end, forced failure produces the

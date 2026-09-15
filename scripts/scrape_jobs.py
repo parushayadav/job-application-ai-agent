@@ -1,4 +1,4 @@
-"""Scrape DevOps Engineer job postings from LinkedIn via Apify.
+"""Scrape AI Data Engineer job postings from LinkedIn via Apify.
 
 Actor: curious_coder/linkedin-jobs-scraper
 Docs: https://apify.com/curious_coder/linkedin-jobs-scraper
@@ -18,7 +18,7 @@ ACTOR_ID = "curious_coder~linkedin-jobs-scraper"
 RUN_URL = f"https://api.apify.com/v2/acts/{ACTOR_ID}/run-sync-get-dataset-items"
 
 
-def scrape_jobs(keywords="DevOps Engineer", location="United States", date_posted="pastWeek", limit=25):
+def scrape_jobs(keywords="AI Data Engineer", location="United States", date_posted="pastWeek", limit=25):
     api_key = os.environ["apify_api_key"]
 
     payload = {

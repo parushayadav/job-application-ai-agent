@@ -1,12 +1,22 @@
 ---
 name: tailor-resume
-description: Tailor the base resume to each qualifying DevOps job in output/scored_jobs.json and deliver it as a PDF in a per-job folder on the Desktop, via the gws (Google Workspace) CLI. Use when asked to tailor resumes, run the tailor-resume step, or generate resumes for qualifying jobs.
+description: Tailor the base resume to each qualifying AI Data Engineer job in output/scored_jobs.json and deliver it as a PDF in a per-job folder under the local Resume folder, via the gws (Google Workspace) CLI. Use when asked to tailor resumes, run the tailor-resume step, or generate resumes for qualifying jobs.
 ---
 
 # Tailor Resume
 
-Turns each qualifying job in `output/scored_jobs.json` into a tailored PDF resume saved on the
-Desktop, using Google Docs (via the `gws` CLI) as the intermediate build step.
+Turns each qualifying job in `output/scored_jobs.json` into a tailored PDF resume saved locally,
+using Google Docs (via the `gws` CLI) as the intermediate build step.
+
+Base output folder (all per-job folders are created directly inside this):
+```
+C:\Users\chidv\OneDrive\Documents\documents\docs new\Chidvilas Resume\Resume
+```
+In Git Bash / this project's Bash tool, address it as:
+```
+/c/Users/chidv/OneDrive/Documents/documents/docs new/Chidvilas Resume/Resume
+```
+Always double-quote it — the `docs new` segment has a space in it.
 
 ## Hard rule
 
@@ -28,17 +38,22 @@ move on to the next job rather than stopping the whole run.
 1. Read `resume/base_resume.md`.
 
 2. Write a tailored version of the resume, preserving the same section headers exactly
-   (`## Summary`, `## Skills`, `## Experience`, `## Education`, `## Certifications`):
+   (`## Summary`, `## Skills`, `## Experience`, `## Projects`, `## Education`, `## Certifications`):
    - **Summary**: reword to mirror the job's language/keywords.
    - **Skills**: reorder so items matching the job's `matched_must_haves` appear first.
    - **Experience**: reorder/re-emphasize existing bullets toward what the job asks for. Do not
      alter dates, employers, titles, or the substance of any bullet — only reorder bullets and
      lightly reword phrasing, never metrics.
+   - **Projects**: carry over unchanged, but reorder bullets to surface whichever are most
+     relevant to this job.
    - Education and Certifications: carry over unchanged.
 
-3. Compute `slug` = the job title, lowercased, non-alphanumeric characters replaced with `-`,
-   collapsed/trimmed (e.g. "DevOps Engineer" → `devops-engineer`). Compute
-   `folder_name = f"{company}-{slug}"`.
+3. Compute filesystem-safe versions of the company name and job title: strip characters Windows
+   forbids in file/folder names (`< > : " / \ | ? *`), collapse repeated whitespace, and trim —
+   call these `safe_company` and `safe_title`. Compute:
+   - `folder_name = f"{safe_company} - {safe_title}"` (e.g. `"Adobe - Senior Data Engineer"`)
+   - `resume_title = f"Chidvilas Parusha {safe_title} Resume"`
+     (e.g. `"Chidvilas Parusha Senior Data Engineer Resume"`)
 
 4. Write the tailored text to `output/tailored/{folder_name}.md` using the Write tool. A
    `PreToolUse` hook (`.claude/hooks/resume_hook.py`) checks this write automatically — it
@@ -46,11 +61,14 @@ move on to the next job rather than stopping the whole run.
    the write is blocked, skip to step 9 for this job with `status: flagged_validation_failed` and
    the hook's reason — do not attempt the remaining steps.
 
-5. Create `~/Desktop/{folder_name}/` with `mkdir -p`.
+5. Create the job folder with `mkdir -p`:
+   ```bash
+   mkdir -p "/c/Users/chidv/OneDrive/Documents/documents/docs new/Chidvilas Resume/Resume/{folder_name}"
+   ```
 
 6. Create a Google Doc:
    ```
-   gws docs documents create --json '{"title": "Sai Santosh Kumar Resume - {Company}"}'
+   gws docs documents create --json '{"title": "{resume_title}"}'
    ```
    Capture the returned `documentId`.
 
@@ -64,15 +82,19 @@ move on to the next job rather than stopping the whole run.
    python3 scripts/format_resume_doc.py output/tailored/{folder_name}.md "$DOCUMENT_ID"
    ```
 
-8. Export the doc straight to the Desktop folder as a PDF, then delete the intermediate doc
-   (note: `files` is a sub-resource of `drive`, not a top-level service — `gws drive files ...`).
+8. Export the doc straight to the job folder as a PDF, then delete the intermediate doc (note:
+   `files` is a sub-resource of `drive`, not a top-level service — `gws drive files ...`).
    `--output` for `gws drive files export` is sandboxed to the current directory, so `cd` into the
-   Desktop folder first and export with a relative filename — an absolute path is rejected:
+   job folder first and export with a relative filename — an absolute path is rejected. The delete
+   call's empty response gets written to a stray `download.html` file in the current directory
+   (passing `--output /dev/null` does NOT suppress this on Windows — it just creates a literal
+   file named `nul` instead via a raw path override), so remove that stray file afterward:
    ```bash
-   cd "$HOME/Desktop/{folder_name}"
+   cd "/c/Users/chidv/OneDrive/Documents/documents/docs new/Chidvilas Resume/Resume/{folder_name}"
    gws drive files export --params '{"fileId": "'"$DOCUMENT_ID"'", "mimeType": "application/pdf"}' \
-     --output "Sai Santosh Kumar Resume.pdf"
+     --output "{resume_title}.pdf"
    gws drive files delete --params '{"fileId": "'"$DOCUMENT_ID"'"}'
+   rm -f download.html
    cd -
    ```
 
@@ -81,8 +103,8 @@ move on to the next job rather than stopping the whole run.
    ```json
    {
      "title": "...", "company": "...", "link": "...", "score": ...,
-     "desktop_folder": "~/Desktop/{folder_name}",
-     "desktop_file": "~/Desktop/{folder_name}/Sai Santosh Kumar Resume.pdf",
+     "desktop_folder": "C:\\Users\\chidv\\OneDrive\\Documents\\documents\\docs new\\Chidvilas Resume\\Resume\\{folder_name}",
+     "desktop_file": "C:\\Users\\chidv\\OneDrive\\Documents\\documents\\docs new\\Chidvilas Resume\\Resume\\{folder_name}\\{resume_title}.pdf",
      "status": "saved"
    }
    ```

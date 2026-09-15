@@ -6,7 +6,7 @@ and the exact run/deploy commands are all below — nothing else to figure out.
 
 ## What This Is
 
-An AI agent that finds DevOps Engineer job postings, scores each one against your resume, tailors
+An AI agent that finds AI Data Engineer job postings, scores each one against your resume, tailors
 your resume to every job that's actually a strong fit, researches the company, and logs it all to
 a Google Sheet — hosted on Modal to run on its own every morning.
 
@@ -140,7 +140,7 @@ drive a real Chrome browser). Neither is implemented here — this is just where
 
 ## Limits
 
-- DevOps Engineer only, for this demo — one niche, on purpose.
+- AI Data Engineer only, for this demo — one niche, on purpose.
 - The 8+/10 fit cutoff is non-negotiable; nothing below it reaches tailoring or the Sheet.
 - The tailoring step only reorders and rewords what's already on the base resume — it never
   invents experience, employers, tools, or metrics.
