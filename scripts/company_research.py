@@ -1,7 +1,11 @@
-"""Company research (PRD 3.5). Per successfully-tailored job, one web-search-grounded
-OpenRouter call returning 3-5 talking points -- context for Sai, never written into
-the resume itself. Adds a "company_notes" field to each saved entry in
-output/tailored_jobs.json.
+"""Company research (PRD 3.5). Per successfully-tailored job, one OpenRouter call returning
+3-5 talking points -- context for the candidate, never written into the resume itself. Adds
+a "company_notes" field to each saved entry in output/tailored_jobs.json.
+
+Uses a free OpenRouter model (no web-search grounding, unlike a paid search-grounded model)
+-- talking points come from the model's training data, not live/current news, so the prompt
+explicitly avoids asking for "recent news" to keep the model from confidently hallucinating
+dates or events it can't actually verify.
 """
 import json
 import os
@@ -14,12 +18,14 @@ ROOT = Path(__file__).resolve().parent.parent
 load_dotenv(ROOT / ".env")
 
 OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
-MODEL = "perplexity/sonar"
+MODEL = "nvidia/nemotron-3.5-lightning:free"
 
 RESEARCH_PROMPT = """Give 3-5 short talking points about __COMPANY__ useful for someone
-interviewing for a __TITLE__ role there -- recent news, product/what they do, engineering
-culture or tech stack if known, anything relevant to bring up in an interview. Plain text,
-one point per line, no headers, no commentary before or after."""
+interviewing for a __TITLE__ role there -- what the company does/its product, its engineering
+culture or tech stack if known, its industry position, anything relevant to bring up in an
+interview. Do not mention specific recent news, dates, or events unless you are certain they
+are accurate -- stick to well-established, general facts about the company. Plain text, one
+point per line, no headers, no commentary before or after."""
 
 
 def research_company(company, title, api_key):
@@ -27,7 +33,13 @@ def research_company(company, title, api_key):
     resp = requests.post(
         OPENROUTER_URL,
         headers={"Authorization": f"Bearer {api_key}"},
-        json={"model": MODEL, "messages": [{"role": "user", "content": prompt}]},
+        json={
+            "model": MODEL,
+            "messages": [{"role": "user", "content": prompt}],
+            # See score_jobs.py: this model's unbounded chain-of-thought can exhaust its
+            # reasoning budget and return content: null instead of an answer.
+            "reasoning": {"enabled": False},
+        },
         timeout=60,
     )
     resp.raise_for_status()

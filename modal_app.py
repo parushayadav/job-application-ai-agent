@@ -39,7 +39,7 @@ image = (
         modal.Secret.from_name("job-apply-agent-secrets"),
         modal.Secret.from_name("gws-credentials"),
     ],
-    schedule=modal.Cron("0 7 * * *", timezone="America/Chicago"),
+    schedule=modal.Cron("0 7 * * *", timezone="America/New_York"),
     timeout=900,
 )
 def run_pipeline():

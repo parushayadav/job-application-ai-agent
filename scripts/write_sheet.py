@@ -4,8 +4,10 @@ Reads output/tailored_jobs.json (produced by the tailor-resume skill), appends o
 per status=="saved" job that isn't already logged (deduped by job link).
 """
 import json
+import re
+import shutil
 import subprocess
-from datetime import date
+from datetime import datetime
 from pathlib import Path
 
 from dotenv import load_dotenv, set_key
@@ -20,8 +22,23 @@ SHEET_TITLE = "Job Application Tracker"
 STATUS_OPTIONS = ["Not Applied", "Applied", "Interviewing", "Offer", "Rejected"]
 
 
+def _resolve_gws_command():
+    gws_path = shutil.which("gws")
+    if gws_path and gws_path.lower().endswith(".cmd"):
+        # See scripts/format_resume_doc.py: npm's Windows .cmd shim routes through cmd.exe,
+        # which Python's subprocess can't launch directly. Call the CLI's real JS entrypoint
+        # through node.exe instead.
+        run_js = Path(gws_path).parent / "node_modules" / "@googleworkspace" / "cli" / "run.js"
+        if run_js.exists():
+            return [shutil.which("node") or "node", str(run_js)]
+    return [gws_path or "gws"]
+
+
+GWS_CMD = _resolve_gws_command()
+
+
 def gws(*args):
-    result = subprocess.run(["gws", *args], capture_output=True, text=True)
+    result = subprocess.run([*GWS_CMD, *args], capture_output=True, text=True)
     if result.returncode != 0:
         raise RuntimeError(f"gws {' '.join(args)} failed: {result.stderr}")
     return json.loads(result.stdout) if result.stdout.strip() else {}
@@ -65,10 +82,25 @@ def get_or_create_sheet_id():
     return sheet_id
 
 
-def get_existing_links(sheet_id):
+JOB_ID_RE = re.compile(r"/jobs/view/(?:[^/?#]*-)?(\d+)")
+
+
+def job_key(link):
+    """Stable dedup key for a job posting.
+
+    LinkedIn stamps per-scrape tracking params (position/refId/trackingId) into every
+    URL, so the same posting comes back with a different URL on every run -- deduping on
+    the raw link would re-add every still-open job as a new row each day. The numeric job
+    id in the path is stable across scrapes.
+    """
+    match = JOB_ID_RE.search(link or "")
+    return match.group(1) if match else (link or "").split("?")[0]
+
+
+def get_existing_keys(sheet_id):
     result = gws("sheets", "+read", "--spreadsheet", sheet_id, "--range", "Sheet1!C:C")
     values = result.get("values", [])
-    return {row[0] for row in values[1:] if row}
+    return {job_key(row[0]) for row in values[1:] if row}
 
 
 if __name__ == "__main__":
@@ -80,17 +112,21 @@ if __name__ == "__main__":
         raise SystemExit(0)
 
     sheet_id = get_or_create_sheet_id()
-    existing_links = get_existing_links(sheet_id)
+    existing_keys = get_existing_keys(sheet_id)
 
-    today = date.today().isoformat()
+    # "YYYY-MM-DD HH:MM:SS" so Sheets parses it as a real datetime (sortable/filterable),
+    # not just a date -- lets you see which run a row came from, not only which day.
+    logged_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     new_rows = []
     for job in saved_jobs:
-        if job["link"] in existing_links:
+        key = job_key(job["link"])
+        if key in existing_keys:
             continue
+        existing_keys.add(key)
         resume_path = job.get("resume_link") or job.get("desktop_file", "")
         new_rows.append([
             job["title"], job["company"], job["link"],
-            str(job["score"]), resume_path, "Not Applied", today,
+            str(job["score"]), resume_path, "Not Applied", logged_at,
             job.get("company_notes", ""),
         ])
 

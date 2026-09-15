@@ -158,8 +158,12 @@ Title}\Chidvilas Parusha {Job Title} Resume.pdf`, and deletes the intermediate D
 Modal path (`scripts/tailor_job.py`) mirrors this same folder/filename convention but uploads to a
 Google Drive folder instead, since Modal has no access to this local path.
 `scripts/write_sheet.py` then logs each `status: "saved"` entry from `output/tailored_jobs.json` to
-the "Job Application Tracker" Google Sheet (id cached in `.env` as `google_sheet_id`), deduped by
-job link, with `Status` starting at `"Not Applied"` for manual tracking.
+the "Job Application Tracker" Google Sheet (id cached in `.env` as `google_sheet_id`, and set in the
+`job-apply-agent-secrets` Modal secret so scheduled runs append to that same sheet instead of
+creating a new one each day), with `Status` starting at `"Not Applied"` for manual tracking.
+Dedup keys off the **numeric LinkedIn job id**, not the full URL — LinkedIn stamps per-scrape
+tracking params (`position`/`refId`/`trackingId`) into every link, so the same posting returns a
+different URL on each run and URL-based dedup would re-add every still-open job daily.
 
 Two `gws` gotchas worth knowing: `files` is a sub-resource of `drive`, not top-level
 (`gws drive files export/delete`, not `gws files ...`), and `--output` for `gws drive files export`
