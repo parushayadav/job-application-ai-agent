@@ -1,6 +1,6 @@
 """Render a tailored resume (markdown) into the branded "Classic accent" PDF (PRD v2 4.6).
 
-    python scripts/render_resume.py <resume.md> <out.pdf> [--logo URL] [--title TEXT]
+    python scripts/render_resume.py <resume.md> <out.pdf> [--logo URL | --accent #RRGGBB] [--title TEXT]
 
 markdown -> HTML (templates/resume_classic.html) -> PDF via headless Chromium. The same engine
 runs locally (Chrome/Edge) and on Modal (Debian `chromium`), so both tailoring paths produce
@@ -219,10 +219,21 @@ def _print_pdf(page_html, pdf_path):
     return len(PAGE_OBJ.findall(pdf_path.read_bytes()))
 
 
-def render(md_text, pdf_path, logo_url=None, title="Resume"):
-    """Returns (accent, pages). Steps down density until the resume fits MAX_PAGES."""
+HEX_COLOR = re.compile(r"^#[0-9A-Fa-f]{6}$")
+
+
+def render(md_text, pdf_path, logo_url=None, title="Resume", accent=None):
+    """Returns (accent, pages). Steps down density until the resume fits MAX_PAGES.
+
+    `accent` (e.g. "#E1251B", the company's brand color) overrides the logo lookup -- used when
+    the logo can't be downloaded (Claude's cloud sessions can't reach LinkedIn's image CDN). It is
+    darkened the same way until it reads well as text on white."""
     md_text, title = clean_dashes(md_text), clean_dashes(title)
-    accent = accent_from_logo(logo_url)
+    if accent and HEX_COLOR.match(accent):
+        rgb = tuple(int(accent[i:i + 2], 16) for i in (1, 3, 5))
+        accent = "#{:02X}{:02X}{:02X}".format(*_readable(rgb))
+    else:
+        accent = accent_from_logo(logo_url)
     base = (TEMPLATE.read_text(encoding="utf-8")
             .replace("__TITLE__", html.escape(title))
             .replace("__FONT_DIR__", FONT_DIR.resolve().as_uri())
@@ -244,7 +255,8 @@ if __name__ == "__main__":
     parser.add_argument("pdf")
     parser.add_argument("--logo")
     parser.add_argument("--title", default="Resume")
+    parser.add_argument("--accent", help="brand color as #RRGGBB; overrides --logo")
     args = parser.parse_args()
     accent, pages = render(Path(args.markdown).read_text(encoding="utf-8"), args.pdf, args.logo,
-                           args.title)
+                           args.title, args.accent)
     print(f"Rendered {args.pdf} ({pages} pages, accent {accent})")

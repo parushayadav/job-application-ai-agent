@@ -4,7 +4,8 @@
 - Budget: at most DAILY_FETCH_CAP (100) jobs fetched per Eastern day across all runs, at most
   PER_RUN_CAP per run -- this cap is what keeps Apify inside its free credit.
 - Free filters run here, before any (rate-limited) model call: already-seen id, repost of a job
-  already seen (same company+title+description under a new id), title, security clearance.
+  already seen (same company+title+description under a new id), title, unusable posting (no
+  link or company, description under 400 characters), security clearance.
   Every filtered-out job is remembered too, so the overlap window can't pull it back in.
 
 Writes output/raw_jobs.json.
@@ -21,7 +22,7 @@ load_dotenv(ROOT / ".env")
 sys.path.insert(0, str(ROOT / "scripts"))
 
 import state
-from filters import requires_clearance, title_matches
+from filters import requires_clearance, title_matches, unusable_reason
 from sources import SOURCES
 
 PER_RUN_CAP = 34          # 3 runs/day x 34 ~= the 100/day cap
@@ -72,7 +73,7 @@ if __name__ == "__main__":
     state.record_fetch(len(fetched))
 
     seen_keys, seen_fps = state.seen_keys(), state.seen_fingerprints()
-    already_seen = reposts = wrong_title = clearance = 0
+    already_seen = reposts = wrong_title = clearance = unusable = 0
     relevant, dropped = [], []
     batch_keys, batch_fps = set(), set()
     for job in fetched:
@@ -87,6 +88,9 @@ if __name__ == "__main__":
         batch_fps.add(job["fingerprint"])
         if not title_matches(job["title"]):
             wrong_title += 1
+            dropped.append(job)
+        elif unusable_reason(job):
+            unusable += 1
             dropped.append(job)
         elif requires_clearance(job["title"], job["description"]):
             clearance += 1
@@ -103,6 +107,7 @@ if __name__ == "__main__":
     # score_jobs.py rewrites this with only what it couldn't score.
     state.save("unscored_jobs.json", to_score)
     print(f"Fetched {len(fetched)} jobs: {already_seen} already seen, {reposts} reposts of jobs "
-          f"already seen, {wrong_title} not Data Engineer titles, {clearance} need a security "
+          f"already seen, {wrong_title} not Data Engineer titles, {unusable} unusable (no link, "
+          f"company or description), {clearance} need a security "
           f"clearance -> {len(to_score)} to score -> {out_path}  "
           f"({state.fetched_today()}/{state.DAILY_FETCH_CAP} fetched today)")

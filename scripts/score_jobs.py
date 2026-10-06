@@ -254,7 +254,7 @@ if __name__ == "__main__":
     state.mark_seen(scored)
     qualified = [j for j in scored if j["qualified"]]
     # Queue qualified jobs NOW (not after tailoring): they're already marked seen, so if the run
-    # dies mid-tailoring they'd never be fetched again. tailor_job.py removes them once saved.
+    # dies before logging they'd never be fetched again. write_sheet.py clears them once logged.
     pending = state.load("pending_jobs.json", [])
     pending_keys = {j["key"] for j in pending}
     state.save("pending_jobs.json", pending + [j for j in qualified if j["key"] not in pending_keys])

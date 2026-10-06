@@ -16,13 +16,39 @@ TITLE_INCLUDE = re.compile(
 TITLE_EXCLUDE = re.compile(
     r"\b(sales|pre[- ]?sales|data entry|support engineer|field|network|civil|mechanical|"
     r"electrical|hardware|manufacturing|intern|internship|recruit\w*|teacher|instructor|"
-    r"analyst|scientist)\b",
+    r"analyst|scientist"
+    # 2026-10-06: roles that name "data" but aren't Data Engineer jobs for an 8+ year IC
+    r"|forward[- ]deployed|solutions?\s+(engineer|architect|consultant)|customer\s+engineer"
+    r"|data\s+cent(er|re)|qa|quality\s+assurance|test\s+engineer|sdet"
+    r"|ai\s+trainer|trainer|tutor|annotat\w*|label(l)?ing|freelance"
+    r"|manager|director|head\s+of|vice\s+president|vp"
+    r"|junior|jr|entry[- ]level|new\s+grad\w*|graduate|apprentice\w*)\b",
     re.IGNORECASE,
 )
 
 
 def title_matches(title):
     return bool(TITLE_INCLUDE.search(title or "")) and not TITLE_EXCLUDE.search(title or "")
+
+
+# --- is the posting usable at all? ----------------------------------------------------------
+MIN_DESCRIPTION_CHARS = 400   # shorter = a stub with nothing to tailor against
+LINKEDIN_ID = re.compile(r"linkedin\.com/jobs/view/(?:[^/?#]*-)?\d+")
+
+
+def unusable_reason(job):
+    """None if the posting has what tailoring and applying need, else why it doesn't:
+    a real job link, a company name, and a description long enough to tailor against."""
+    link = job.get("link") or ""
+    if job.get("source") == "linkedin" and not LINKEDIN_ID.search(link):
+        return "no job link"
+    if not link:
+        return "no job link"
+    if not (job.get("company") or "").strip():
+        return "no company"
+    if len((job.get("description") or "").strip()) < MIN_DESCRIPTION_CHARS:
+        return "description too short"
+    return None
 
 
 # --- security clearance ---------------------------------------------------------------------

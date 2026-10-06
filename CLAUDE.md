@@ -11,6 +11,22 @@ log) is implemented in `scripts/`, gated by `.claude/hooks/resume_hook.py` and
 names) are the source of truth for scope and hard rules — read both before changing pipeline
 behavior. Treat their hard rules as binding, not suggestions to redesign.
 
+## Change 2026-10-06: Claude writes the resumes
+
+The free-model resumes were not good enough, so the Modal pipeline no longer writes resumes
+(`tailor_job.py` is kept but not run). Flow, all in `scripts/claude_handoff.py`:
+`run_pipeline` (5:00/14:00/21:00 ET) logs qualified jobs WITH the job description to the Sheet
+(Resume Path empty) and publishes Drive `Claude Resumes/claude_queue.json` -> a Claude scheduled
+task (5:15/14:15/21:15 ET) follows `.claude/skills/tailor-from-sheet/SKILL.md`, writing one
+markdown draft per job to Drive `_drafts` -> `render_resumes` (5:55/14:55/21:55 ET, and at the
+start of every run) renders the PDFs with `render_resume.py`, uploads them, and writes the link
+into Resume Path (col E) and notes into Resume Notes (col R). Claude may reword bullets (facts,
+tools and numbers unchanged, checked by `scripts/check_resume.py`); the font is always Source Sans
+3 and the accent is the company's brand color. Sheet columns M-R (Job Description, Headline,
+Company Logo, Location, Posted Date, Resume Notes) were added for this. Title filter also drops
+forward deployed, solutions, data center, QA, trainer/annotation, manager/director and junior
+titles; postings without a job link, company or a 400+ character description are dropped.
+
 ## What This Builds
 
 A job-application agent for Chidvilas Parusha: fetches new **Data Engineer** postings (all title
@@ -34,8 +50,9 @@ state goes to `./state/`, or `$STATE_DIR`):
 python3 scripts/scrape_jobs.py        # -> output/raw_jobs.json (window since last run, 100/day cap)
 python3 scripts/score_jobs.py         # -> output/scored_jobs.json, updates keyword gaps + seen jobs
 python3 scripts/company_research.py   # adds company_notes/company_focus to scored_jobs.json
-python3 scripts/tailor_job.py         # automated tailoring + branded PDF -> Drive, tailored_jobs.json
-python3 scripts/write_sheet.py        # -> Google Sheet
+# python3 scripts/tailor_job.py       # DISABLED 2026-10-06 (Claude tailors instead)
+python3 scripts/write_sheet.py        # -> Google Sheet (+ job description) + Drive claude_queue.json
+python3 scripts/render_claude_resumes.py  # Claude's Drive drafts -> PDFs -> Resume Path column
 python3 scripts/keyword_gaps.py       # mirror keyword_gaps.md to Drive
 ```
 
@@ -138,7 +155,7 @@ The OAuth app must be **In production** — Testing-mode refresh tokens expire a
 - **≥ 50% keyword match cutoff** (applied in code) — nothing below it reaches tailoring, Sheet,
   or Drive/local folders. (v2; replaced v1's 8+/10.)
 - **No fabrication** — resumes may only claim what's in `base_resume.md` or
-  `skills_inventory.md`. JD keywords the candidate lacks go to `keyword_gaps.md`, never onto the
+  `skills_inventory.md` (Claude's rewording keeps facts, tools and numbers; `check_resume.py`). JD keywords the candidate lacks go to `keyword_gaps.md`, never onto the
   resume. Only the human adds skills to the inventory.
 - **No em dashes** (or en dashes) in resumes: they read as AI-generated. Four layers: the base
   resume is written without them, the tailoring prompt and skill forbid them, `text_rules.clean_dashes`
