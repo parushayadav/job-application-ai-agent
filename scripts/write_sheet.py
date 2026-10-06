@@ -22,8 +22,8 @@ from gws_cli import gws
 # Columns A-H predate v2 and keep their positions so existing rows stay aligned; v2 renamed
 # "Fit Score" (1-10) to "Match %" -- rows logged before 2026-10-05 hold the old 8-10 scores.
 HEADERS = ["Job Title", "Company", "Job Link", "Match %", "Resume Path", "Status", "Timestamp",
-           "Company Notes", "Matched Keywords", "Keyword Gaps", "Source"]
-HEADER_RANGE = "Sheet1!A1:K1"
+           "Company Notes", "Matched Keywords", "Keyword Gaps", "Source", "Fingerprint"]
+HEADER_RANGE = "Sheet1!A1:L1"
 SHEET_TITLE = "Job Application Tracker"
 STATUS_OPTIONS = ["Not Applied", "Applied", "Interviewing", "Offer", "Rejected"]
 
@@ -91,16 +91,24 @@ def norm_text(text):
 
 
 def get_logged(sheet_id):
-    """-> (job keys, {(company, title)}) of everything already in the Sheet, i.e. every job that
-    already has a resume. The company+title set catches reposts: same role, new job id."""
-    result = gws("sheets", "+read", "--spreadsheet", sheet_id, "--range", "Sheet1!A:C")
-    keys, company_titles = set(), set()
+    """-> (job keys, fingerprints, legacy {(company, title)}) of every job already in the Sheet,
+    i.e. every job that already has a resume.
+
+    Precise matches: job key (same posting) and fingerprint (same company+title+description under
+    a new id = a repost). Rows logged before the Fingerprint column existed have no fingerprint,
+    so only those fall back to the coarse company+title match; a company's two different openings
+    with the same title are therefore never merged once they have fingerprints."""
+    result = gws("sheets", "+read", "--spreadsheet", sheet_id, "--range", "Sheet1!A:L")
+    keys, fingerprints, legacy_titles = set(), set(), set()
     for row in result.get("values", [])[1:]:
         if len(row) > 2:
             keys.add(link_key(row[2]))
-        if len(row) > 1:
-            company_titles.add((norm_text(row[1]), norm_text(row[0])))
-    return keys, company_titles
+        fp = row[11].strip() if len(row) > 11 else ""
+        if fp:
+            fingerprints.add(fp)
+        elif len(row) > 1:
+            legacy_titles.add((norm_text(row[1]), norm_text(row[0])))
+    return keys, fingerprints, legacy_titles
 
 
 def get_existing_keys(sheet_id):
@@ -147,6 +155,7 @@ if __name__ == "__main__":
             ", ".join(m["keyword"] for m in job.get("matched_keywords", [])),
             ", ".join(job.get("gap_keywords", [])),
             job.get("source", ""),
+            job.get("fingerprint", ""),
         ])
 
     if new_rows:

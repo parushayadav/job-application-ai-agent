@@ -9,7 +9,10 @@ Implementation notes beyond the draft (found while testing on real postings):
   budget now goes to Data Engineer searches.
 - **Repost dedup**: LinkedIn gives a repost a new id, so id-based dedup built duplicate resumes
   (EA, Publicis Sapient). Added a company+title+description fingerprint and a Sheet check on
-  company+title; filtered-out jobs are remembered so they are never re-fetched into scoring.
+  company+title, later made precise: the Sheet gets a `Fingerprint` column so only legacy rows fall
+  back to company+title, and a company's distinct openings or the same role at different
+  companies are never merged. Filtered-out jobs are remembered so they are never re-fetched into
+  scoring.
 - Scoring keeps only keywords that literally appear in the JD and model-proposed matches that
   share a meaningful word with the inventory skill (the model padded matches and mapped loosely,
   e.g. "coding assistants" -> "LLM Integration"). Sentence-fragment "keywords" are dropped.

@@ -316,7 +316,7 @@ def deliver(job, text, parent_folder_id, tailored_dir, tmp_dir):
 
 
 SHEET_FIELDS = ("key", "source", "title", "company", "link", "match_pct", "matched_keywords",
-                "gap_keywords", "company_notes")
+                "gap_keywords", "company_notes", "fingerprint")
 
 if __name__ == "__main__":
     api_key = os.environ["open_router_apikey"]

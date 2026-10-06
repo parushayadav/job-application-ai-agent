@@ -182,20 +182,22 @@ def score_job(job, items, inventory_block, index, api_key):
 
 
 def drop_logged_in_sheet(jobs):
-    """Belt-and-braces dedup against the Sheet: covers jobs logged before seen_jobs existed, and
-    reposts (same company + title under a new job id) of roles that already have a resume."""
+    """Dedup against the Sheet -- the durable record of which jobs already have a resume, which
+    survives even if the Modal state Volume is lost. Same job id, same fingerprint (a repost), or
+    -- only for rows predating the Fingerprint column -- same company + title."""
     sheet_id = os.environ.get("google_sheet_id", "").strip()
     if not sheet_id:
         return jobs
     try:
-        logged_keys, logged_titles = get_logged(sheet_id)
+        logged_keys, logged_fps, legacy_titles = get_logged(sheet_id)
     except Exception as e:
         print(f"WARNING could not read Sheet for dedup: {e}")
         return jobs
     keep, dropped = [], []
     for j in jobs:
         if (j["key"] in logged_keys or link_key(j["link"]) in logged_keys
-                or (norm_text(j["company"]), norm_text(j["title"])) in logged_titles):
+                or j.get("fingerprint") in logged_fps
+                or (norm_text(j["company"]), norm_text(j["title"])) in legacy_titles):
             dropped.append(j)
         else:
             keep.append(j)

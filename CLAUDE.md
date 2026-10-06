@@ -108,13 +108,20 @@ checkpoints after every job, and uploaded-but-unlogged rows sit in `unlogged_job
 for manual tests — without it, a dropped local connection stops the app mid-run.
 
 Dedup (all free, all before any model call; every filtered-out job is also remembered so the
-overlap window can't re-fetch it): (1) job key `source:id` in `seen_jobs.json`; (2) fingerprint
-= company + title + description hash — catches **reposts**, which get a new id (EA and Publicis
-Sapient each got two resumes before this); (3) the Sheet — same job key, or same company +
-title, i.e. a resume already exists. Then `filters.title_matches` (data discipline +
-engineer/developer; "Software Engineer" alone fails) and `filters.requires_clearance`
-(top secret, TS/SCI, security/secret clearance, polygraph; negated mentions like "no clearance
-required" are allowed).
+overlap window can't re-fetch it). Identity is never the URL — LinkedIn stamps per-scrape
+tracking params (`refId`/`trackingId`) into every link, so the same posting has a different URL
+each run. Instead: (1) **job key** `source:id` (LinkedIn's numeric id, stable per posting; every
+fetched job has one; other boards must supply their own id or a query-less URL) in
+`seen_jobs.json`; (2) **fingerprint** = hash of company + title + description — LinkedIn gives a
+**repost a new id** (EA and Publicis Sapient each got two resumes before this), but the text is
+the same. Company is part of the fingerprint, so the same role at two different companies, or two
+different openings at one company, are NOT merged — each gets its own resume; (3) the **Sheet**
+(durable even if the Modal Volume is lost): matched by job key, by the `Fingerprint` column
+(col L), and — only for rows older than that column — by company + title. A repost whose text was
+edited counts as a new job (errs toward applying twice, never toward missing a job). Then
+`filters.title_matches` (data discipline + engineer/developer; "Software Engineer" alone fails)
+and `filters.requires_clearance` (top secret, TS/SCI, security/secret clearance, polygraph;
+negated mentions like "no clearance required" are allowed).
 
 LinkedIn (`sources/linkedin.py`) uses Apify search-URL mode with `f_TPR=r<seconds>` so each run
 fetches only postings since the previous run (the actor's `datePosted` enum bottoms out at 24h,
@@ -171,7 +178,7 @@ job-application-ai-agent/
 
 "Job Application Tracker" (id in `.env` as `google_sheet_id`, also in the Modal secret).
 Columns: Job Title, Company, Job Link, Match %, Resume Path, Status, Timestamp (ET), Company Notes,
-Matched Keywords, Keyword Gaps, Source. Rows logged before 2026-10-05 hold v1 1-10 scores in
+Matched Keywords, Keyword Gaps, Source, Fingerprint. Rows logged before 2026-10-05 hold v1 1-10 scores in
 "Match %". Dedup keys off `source:id` (LinkedIn: the numeric job id, never the URL — LinkedIn
 stamps per-scrape tracking params into every link).
 
