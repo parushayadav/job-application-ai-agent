@@ -38,6 +38,7 @@ from gws_cli import create_folder, upload_file
 from inventory import build_index, contains_term, load_inventory
 from openrouter import DailyQuotaExceeded, chat
 from render_resume import render
+from text_rules import clean_dashes
 from validate_resume import validate_tailored
 
 MODEL = "nvidia/nemotron-3.5-lightning:free"
@@ -58,6 +59,9 @@ __MATCHED__
      domains (the candidate's are financial services, insurance, hospitality), leadership,
      mentoring, team sizes, or seniority words like "expert" that the resume doesn't state.
    - No other numbers, no tools outside the base resume and the list above. Plain prose.
+   - WRITING STYLE: never use em dashes or en dashes (the long dash characters). Use commas,
+     periods or colons. Write like a person, not like an AI: no "leveraging", "spearheading",
+     "passionate", "proven track record", or "cutting-edge".
 
 2. ORDER the bullets of each role/project so the most relevant to this job come first. Use the
    bullet numbers shown below. Include every number exactly once.
@@ -193,7 +197,7 @@ def assemble(base, job, summary, orders):
         else:
             out += [l for l in body if l.strip()]
         out.append("")
-    return "\n".join(out).strip() + "\n"
+    return clean_dashes("\n".join(out).strip() + "\n")
 
 
 # ---------- model part: summary + bullet order ----------
@@ -298,8 +302,8 @@ def inventory_vocabulary(items):
 # ---------- delivery ----------
 
 def deliver(job, text, parent_folder_id, tailored_dir, tmp_dir):
-    safe_company = sanitize_for_filesystem(job["company"])
-    safe_title = sanitize_for_filesystem(job["title"])
+    safe_company = clean_dashes(sanitize_for_filesystem(job["company"]))
+    safe_title = clean_dashes(sanitize_for_filesystem(job["title"]))
     folder_name = f"{safe_company} - {safe_title}"
     resume_title = f"Chidvilas Parusha {safe_title} Resume"
 

@@ -24,6 +24,8 @@ from pathlib import Path
 
 import requests
 
+from text_rules import clean_dashes
+
 ROOT = Path(__file__).resolve().parent.parent
 TEMPLATE = ROOT / "templates" / "resume_classic.html"
 FONT_DIR = ROOT / "templates" / "fonts"
@@ -219,6 +221,7 @@ def _print_pdf(page_html, pdf_path):
 
 def render(md_text, pdf_path, logo_url=None, title="Resume"):
     """Returns (accent, pages). Steps down density until the resume fits MAX_PAGES."""
+    md_text, title = clean_dashes(md_text), clean_dashes(title)
     accent = accent_from_logo(logo_url)
     base = (TEMPLATE.read_text(encoding="utf-8")
             .replace("__TITLE__", html.escape(title))

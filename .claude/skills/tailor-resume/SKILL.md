@@ -26,6 +26,15 @@ in `resume/base_resume.md`, plus skills listed in `resume/skills_inventory.md`. 
 `gap_keywords` are tools the candidate does NOT have — never mention them, even though the JD asks.
 They are tracked in `keyword_gaps.md` for the human to review instead.
 
+## Writing style (hard rule)
+
+**Never use em dashes or en dashes** (the long dash characters) anywhere in the resume. They are
+the best-known tell of AI-written text. Use a comma, period, colon, `|` or a plain hyphen. Also
+avoid AI-sounding filler such as "leveraging", "spearheading", "passionate", "proven track
+record", "cutting-edge". `resume/base_resume.md` is already written this way; keep it so.
+`validate_resume.py` and the Write hook reject a resume containing an em dash, and
+`render_resume.py` strips any that remain.
+
 ## Procedure
 
 Read `output/scored_jobs.json`, filter to `qualified == true` (keyword match ≥ 50%; run

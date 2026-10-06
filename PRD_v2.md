@@ -4,6 +4,9 @@ Status: **Approved 2026-10-05, implemented.** Supersedes the v1 rules it names b
 else in `PRD.md` still holds.
 
 Implementation notes beyond the draft (found while testing on real postings):
+- **No em/en dashes in resumes (2026-10-05, by request)**: they read as AI-generated. Base resume
+  rewritten without them; `scripts/text_rules.py` strips any that remain before render and from
+  file/folder names; the validator rejects an em dash; the prompt and skill forbid them.
 - **Software Engineer removed (2026-10-05, by request)** and **security-clearance roles excluded**
   (candidate has no clearance): `scripts/filters.py`, applied at fetch time. The whole fetch
   budget now goes to Data Engineer searches.

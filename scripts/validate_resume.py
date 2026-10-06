@@ -19,6 +19,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "scripts"))
 
+from text_rules import has_em_dash
+
 REQUIRED_SECTIONS = ["## Summary", "## Skills", "## Experience"]
 PLACEHOLDER_MARKERS = ["[placeholder]", "todo", "tbd", "lorem ipsum", "{{", "}}"]
 NUMBER_TOKEN = re.compile(r"\d[\d,.\-]*(?:[KMB]\+?|%|\+)?")
@@ -29,6 +31,10 @@ def validate(content):
     missing_sections = [s for s in REQUIRED_SECTIONS if s not in content]
     if missing_sections:
         return False, f"missing required section(s): {', '.join(missing_sections)}"
+
+    if has_em_dash(content):
+        return False, ("contains an em dash, which reads as AI-generated; use a comma, period, "
+                       "colon or hyphen instead")
 
     lower_content = content.lower()
     found_placeholders = [m for m in PLACEHOLDER_MARKERS if m in lower_content]

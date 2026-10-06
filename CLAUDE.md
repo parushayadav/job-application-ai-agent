@@ -140,6 +140,10 @@ The OAuth app must be **In production** — Testing-mode refresh tokens expire a
 - **No fabrication** — resumes may only claim what's in `base_resume.md` or
   `skills_inventory.md`. JD keywords the candidate lacks go to `keyword_gaps.md`, never onto the
   resume. Only the human adds skills to the inventory.
+- **No em dashes** (or en dashes) in resumes: they read as AI-generated. Four layers: the base
+  resume is written without them, the tailoring prompt and skill forbid them, `text_rules.clean_dashes`
+  strips any that remain (before render, on folder/file names, on model output), and
+  `validate_resume.validate()` rejects them. Keep new resume text and prompts dash-free.
 - **No auto-submitting applications** — the agent prepares; a human clicks apply.
 - **Resume identity** — `resume/base_resume.md` is Chidvilas Parusha's real resume (real personal
   data); keep it out of any public remote — see `.gitignore`.
@@ -166,7 +170,7 @@ job-application-ai-agent/
   scripts/
     scrape_jobs.py  filters.py  score_jobs.py  company_research.py  tailor_job.py  write_sheet.py
     keyword_gaps.py  render_resume.py  validate_resume.py  inventory.py  openrouter.py
-    gws_cli.py  state.py
+    gws_cli.py  state.py  text_rules.py
     sources/  __init__.py (registry)  base.py  linkedin.py
   output/                   # gitignored — per-run job data
   state/                    # gitignored — local persistent state (Modal uses a Volume)
