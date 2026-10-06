@@ -73,9 +73,14 @@ def seen_keys():
     return set(load("seen_jobs.json", {}))
 
 
+def seen_fingerprints():
+    return {v["fp"] for v in load("seen_jobs.json", {}).values() if v.get("fp")}
+
+
 def mark_seen(jobs, outcome_field="qualified"):
     seen = load("seen_jobs.json", {})
     stamp = today_eastern()
     for job in jobs:
-        seen[job["key"]] = {"date": stamp, "qualified": bool(job.get(outcome_field))}
+        seen[job["key"]] = {"date": stamp, "qualified": bool(job.get(outcome_field)),
+                            "fp": job.get("fingerprint")}
     save("seen_jobs.json", seen)

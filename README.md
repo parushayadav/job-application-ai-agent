@@ -6,7 +6,7 @@ and the exact run/deploy commands are all below — nothing else to figure out.
 
 ## What This Is
 
-An AI agent that finds new Data Engineer and Software Engineer job postings, scores each one by
+An AI agent that finds new Data Engineer job postings, scores each one by
 how many of its technology keywords you actually have, tailors a branded ATS-safe PDF resume to
 every job with at least a 50% match, researches the company, and logs it all to a Google Sheet —
 hosted on Modal, running 3x a day.
@@ -159,8 +159,9 @@ drive a real Chrome browser). Neither is implemented here — this is just where
 
 ## Limits
 
-- Data Engineer + Software Engineer roles, US, from LinkedIn (more boards plug into
-  `scripts/sources/`).
+- Data Engineer roles only, US, from LinkedIn (more boards plug into `scripts/sources/`).
+  Software Engineer roles and roles requiring a security clearance are filtered out, and a job
+  (or a repost of it) never gets a second resume.
 - The 50% keyword-match cutoff is enforced in code; nothing below it reaches tailoring or the Sheet.
 - Tailoring only reorders and rewords what's on the base resume plus skills you listed in
   `skills_inventory.md` — it never invents experience, employers, tools, or metrics, and a

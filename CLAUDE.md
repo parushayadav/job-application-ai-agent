@@ -13,8 +13,8 @@ behavior. Treat their hard rules as binding, not suggestions to redesign.
 
 ## What This Builds
 
-A job-application agent for Chidvilas Parusha: fetches new **Data Engineer** and **Software
-Engineer** postings (all title variants), scores each by technology-keyword match against
+A job-application agent for Chidvilas Parusha: fetches new **Data Engineer** postings (all title
+variants; Software Engineer was dropped by request), scores each by technology-keyword match against
 `resume/skills_inventory.md`, tailors a branded ATS-safe PDF resume for every job with **≥ 50%
 match**, logs it to a Google Sheet, records unmatched JD keywords in `keyword_gaps.md`, and runs
 unattended 3x daily on Modal.
@@ -107,6 +107,15 @@ checkpoints after every job, and uploaded-but-unlogged rows sit in `unlogged_job
 `write_sheet.py` logs them. A run killed at any point loses nothing. Use `modal run --detach`
 for manual tests — without it, a dropped local connection stops the app mid-run.
 
+Dedup (all free, all before any model call; every filtered-out job is also remembered so the
+overlap window can't re-fetch it): (1) job key `source:id` in `seen_jobs.json`; (2) fingerprint
+= company + title + description hash — catches **reposts**, which get a new id (EA and Publicis
+Sapient each got two resumes before this); (3) the Sheet — same job key, or same company +
+title, i.e. a resume already exists. Then `filters.title_matches` (data discipline +
+engineer/developer; "Software Engineer" alone fails) and `filters.requires_clearance`
+(top secret, TS/SCI, security/secret clearance, polygraph; negated mentions like "no clearance
+required" are allowed).
+
 LinkedIn (`sources/linkedin.py`) uses Apify search-URL mode with `f_TPR=r<seconds>` so each run
 fetches only postings since the previous run (the actor's `datePosted` enum bottoms out at 24h,
 which would re-bill the same jobs 3x/day). Apify bills ~$1/1,000 results; the 100/day cap keeps it
@@ -127,7 +136,9 @@ The OAuth app must be **In production** — Testing-mode refresh tokens expire a
 - **No auto-submitting applications** — the agent prepares; a human clicks apply.
 - **Resume identity** — `resume/base_resume.md` is Chidvilas Parusha's real resume (real personal
   data); keep it out of any public remote — see `.gitignore`.
-- **Targets** — Data Engineer + Software Engineer roles (v2; replaced "AI Data Engineer only").
+- **Targets** — Data Engineer family only (v2). Software Engineer roles and any role requiring a
+  security clearance (the candidate has none) are excluded in `scripts/filters.py` before scoring.
+- **Never build a resume twice for the same job** — see Dedup below.
 - **≤ 100 fetched jobs per Eastern day**, across all runs.
 - Wrap each scheduled Modal run in try/except; on any failure, send a Telegram alert named
   `JOB-APPLY-AGENT — WHAT BROKE`, then re-raise. No silent failures.
@@ -146,7 +157,7 @@ job-application-ai-agent/
     resume_classic.html     # branded ATS-safe template
     fonts/                  # Source Sans 3 (OFL)
   scripts/
-    scrape_jobs.py  score_jobs.py  company_research.py  tailor_job.py  write_sheet.py
+    scrape_jobs.py  filters.py  score_jobs.py  company_research.py  tailor_job.py  write_sheet.py
     keyword_gaps.py  render_resume.py  validate_resume.py  inventory.py  openrouter.py
     gws_cli.py  state.py
     sources/  __init__.py (registry)  base.py  linkedin.py

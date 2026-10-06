@@ -86,6 +86,23 @@ def link_key(link):
     return f"linkedin:{match.group(1)}" if match else (link or "").split("?")[0]
 
 
+def norm_text(text):
+    return re.sub(r"[^a-z0-9]+", " ", (text or "").lower()).strip()
+
+
+def get_logged(sheet_id):
+    """-> (job keys, {(company, title)}) of everything already in the Sheet, i.e. every job that
+    already has a resume. The company+title set catches reposts: same role, new job id."""
+    result = gws("sheets", "+read", "--spreadsheet", sheet_id, "--range", "Sheet1!A:C")
+    keys, company_titles = set(), set()
+    for row in result.get("values", [])[1:]:
+        if len(row) > 2:
+            keys.add(link_key(row[2]))
+        if len(row) > 1:
+            company_titles.add((norm_text(row[1]), norm_text(row[0])))
+    return keys, company_titles
+
+
 def get_existing_keys(sheet_id):
     result = gws("sheets", "+read", "--spreadsheet", sheet_id, "--range", "Sheet1!C:C")
     values = result.get("values", [])

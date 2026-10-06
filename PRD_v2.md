@@ -4,6 +4,12 @@ Status: **Approved 2026-10-05, implemented.** Supersedes the v1 rules it names b
 else in `PRD.md` still holds.
 
 Implementation notes beyond the draft (found while testing on real postings):
+- **Software Engineer removed (2026-10-05, by request)** and **security-clearance roles excluded**
+  (candidate has no clearance): `scripts/filters.py`, applied at fetch time. The whole fetch
+  budget now goes to Data Engineer searches.
+- **Repost dedup**: LinkedIn gives a repost a new id, so id-based dedup built duplicate resumes
+  (EA, Publicis Sapient). Added a company+title+description fingerprint and a Sheet check on
+  company+title; filtered-out jobs are remembered so they are never re-fetched into scoring.
 - Scoring keeps only keywords that literally appear in the JD and model-proposed matches that
   share a meaningful word with the inventory skill (the model padded matches and mapped loosely,
   e.g. "coding assistants" -> "LLM Integration"). Sentence-fragment "keywords" are dropped.

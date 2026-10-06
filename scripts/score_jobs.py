@@ -29,7 +29,7 @@ from inventory import (appears_in, build_index, inventory_prompt_block, load_inv
                        normalize, plausible_alias)
 from openrouter import DailyQuotaExceeded, chat
 from tech_lexicon import TECH_TERMS
-from write_sheet import get_existing_keys, link_key
+from write_sheet import get_logged, link_key, norm_text
 
 MODEL = "nvidia/nemotron-3.5-lightning:free"
 WORKERS = 4                # concurrent model calls (the request rate is capped separately)
@@ -182,16 +182,27 @@ def score_job(job, items, inventory_block, index, api_key):
 
 
 def drop_logged_in_sheet(jobs):
-    """Belt-and-braces dedup against the Sheet (covers jobs logged before seen_jobs existed)."""
+    """Belt-and-braces dedup against the Sheet: covers jobs logged before seen_jobs existed, and
+    reposts (same company + title under a new job id) of roles that already have a resume."""
     sheet_id = os.environ.get("google_sheet_id", "").strip()
     if not sheet_id:
         return jobs
     try:
-        logged = get_existing_keys(sheet_id)
+        logged_keys, logged_titles = get_logged(sheet_id)
     except Exception as e:
         print(f"WARNING could not read Sheet for dedup: {e}")
         return jobs
-    return [j for j in jobs if j["key"] not in logged and link_key(j["link"]) not in logged]
+    keep, dropped = [], []
+    for j in jobs:
+        if (j["key"] in logged_keys or link_key(j["link"]) in logged_keys
+                or (norm_text(j["company"]), norm_text(j["title"])) in logged_titles):
+            dropped.append(j)
+        else:
+            keep.append(j)
+    if dropped:
+        print(f"{len(dropped)} jobs skipped: already have a resume in the Sheet (same job or repost)")
+        state.mark_seen(dropped)
+    return keep
 
 
 if __name__ == "__main__":
