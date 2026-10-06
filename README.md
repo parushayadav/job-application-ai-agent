@@ -6,24 +6,30 @@ and the exact run/deploy commands are all below — nothing else to figure out.
 
 ## What This Is
 
-An AI agent that finds AI Data Engineer job postings, scores each one against your resume, tailors
-your resume to every job that's actually a strong fit, researches the company, and logs it all to
-a Google Sheet — hosted on Modal to run on its own every morning.
+An AI agent that finds new Data Engineer and Software Engineer job postings, scores each one by
+how many of its technology keywords you actually have, tailors a branded ATS-safe PDF resume to
+every job with at least a 50% match, researches the company, and logs it all to a Google Sheet —
+hosted on Modal, running 3x a day.
 
-Built as the capstone project for the final session of the Claude Code Masterclass.
+Built as the capstone project for the final session of the Claude Code Masterclass; extended in
+v2 (see [`PRD_v2.md`](PRD_v2.md)).
 
 ## Architecture
 
 ```
-Scrape (Apify)
-    -> Score + Filter (OpenRouter, 8+/10 cutoff)
-        -> Tailor Resume (Skill + validation Hook)
+Fetch (pluggable sources; LinkedIn via Apify, only postings since the last run, <= 100/day)
+    -> Title filter + seen-job dedup (free, no model calls)
+        -> Keyword match vs resume/skills_inventory.md (OpenRouter, >= 50% cutoff)
             -> Company Research (OpenRouter)
-                -> Log to Google Sheet (gws CLI)
+                -> Tailor + validate + branded PDF (company logo color)
+                    -> Google Drive + Google Sheet (gws CLI)
+                        -> keyword_gaps.md (JD keywords you don't have yet)
 ```
 
-Every job gets scored against the base resume. Only jobs scoring 8 or higher continue past that
-step — the rest are logged as rejected but never tailored, never touch the Sheet.
+Every job gets a match %: of the technologies the posting names, how many are in your skills
+inventory. Below 50% it's logged as rejected and never tailored. Keywords you're missing never go
+on the resume — they're counted in `keyword_gaps.md`, and frequently requested ones are flagged so
+you can add them to the inventory if you genuinely have them (or learn them).
 
 ## Setup
 
@@ -61,10 +67,13 @@ Manually, step by step, in order:
 ```bash
 python3 scripts/scrape_jobs.py
 python3 scripts/score_jobs.py
-python3 scripts/tailor_job.py
 python3 scripts/company_research.py
+python3 scripts/tailor_job.py
 python3 scripts/write_sheet.py
+python3 scripts/keyword_gaps.py
 ```
+
+PDFs are rendered with headless Chrome/Edge locally (Chromium on Modal).
 
 Or as a single test run through Modal (without deploying it):
 
@@ -86,8 +95,18 @@ modal secret create gws-credentials \
 modal deploy modal_app.py
 ```
 
-Runs daily at 7am America/New_York. See [`GWS_SETUP.md`](GWS_SETUP.md) for how to get the
-`gws-credentials` values, and the Telegram section below for the bot token.
+Runs at 5:00, 14:00 and 21:00 America/New_York. See [`GWS_SETUP.md`](GWS_SETUP.md) for how to get
+the `gws-credentials` values, and the Telegram section below for the bot token.
+
+Run state (seen jobs, the 100/day fetch cap, gap counts, retry queues) lives on the Modal Volume
+`job-apply-agent-state`, created automatically. Pull the latest gap report with
+`modal volume get job-apply-agent-state keyword_gaps.md resume/ --force` (a copy is also put in
+the Drive folder every run).
+
+**Cost/limits at 3 runs/day:** Apify ≤ 100 results/day ≈ $3/month (inside the $5 free credit);
+OpenRouter ≤ ~250 of the 1,000 free requests/day (needs a one-time 10-credit top-up); Modal well
+inside the $30/month free credit. The 100/day cap is the binding limit — more runs per day give
+fresher jobs, not more jobs.
 
 ## Telegram Failure Alerts
 
@@ -140,10 +159,12 @@ drive a real Chrome browser). Neither is implemented here — this is just where
 
 ## Limits
 
-- AI Data Engineer only, for this demo — one niche, on purpose.
-- The 8+/10 fit cutoff is non-negotiable; nothing below it reaches tailoring or the Sheet.
-- The tailoring step only reorders and rewords what's already on the base resume — it never
-  invents experience, employers, tools, or metrics.
+- Data Engineer + Software Engineer roles, US, from LinkedIn (more boards plug into
+  `scripts/sources/`).
+- The 50% keyword-match cutoff is enforced in code; nothing below it reaches tailoring or the Sheet.
+- Tailoring only reorders and rewords what's on the base resume plus skills you listed in
+  `skills_inventory.md` — it never invents experience, employers, tools, or metrics, and a
+  validator rejects any resume that does.
 - A human always clicks the final "apply" — nothing here submits an application on its own.
 
 ## License

@@ -1,5 +1,9 @@
 # PRD — Job Application Agent (Masterclass Session 11 Capstone)
 
+> **v2 (2026-10-05):** `PRD_v2.md` supersedes this document's scoring cutoff (8+/10 → ≥ 50%
+> keyword match), niche (AI Data Engineer → Data Engineer + Software Engineer), schedule (1x → 3x
+> daily), and resume format (Google Docs → branded PDF template). Everything else here still holds.
+
 Drop this file into the empty project folder as `PRD.md` before recording. Run `claude`, then `/init`,
 then point Claude at this file to start planning.
 

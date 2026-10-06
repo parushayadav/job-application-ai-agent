@@ -1,12 +1,13 @@
 ---
 name: tailor-resume
-description: Tailor the base resume to each qualifying AI Data Engineer job in output/scored_jobs.json and deliver it as a PDF in a per-job folder under the local Resume folder, via the gws (Google Workspace) CLI. Use when asked to tailor resumes, run the tailor-resume step, or generate resumes for qualifying jobs.
+description: Tailor the base resume to each qualified Data Engineer / Software Engineer job in output/scored_jobs.json and deliver it as a branded, ATS-safe PDF in a per-job folder under the local Resume folder. Use when asked to tailor resumes, run the tailor-resume step, or generate resumes for qualifying jobs.
 ---
 
-# Tailor Resume
+# Tailor Resume (interactive path, PRD v2)
 
-Turns each qualifying job in `output/scored_jobs.json` into a tailored PDF resume saved locally,
-using Google Docs (via the `gws` CLI) as the intermediate build step.
+Turns each qualified job in `output/scored_jobs.json` into a tailored, company-branded PDF saved
+locally. Same rules, validator and renderer as the automated path (`scripts/tailor_job.py`) —
+only the delivery differs (local folder instead of Drive).
 
 Base output folder (all per-job folders are created directly inside this):
 ```
@@ -21,95 +22,68 @@ Always double-quote it — the `docs new` segment has a space in it.
 ## Hard rule
 
 **Never invent experience, employers, tools, dates, or metrics.** Only reorder and reword content
-that already exists in `resume/base_resume.md`. If a job wants something the resume doesn't have,
-leave it out — do not fabricate it to look like a better fit.
-
-## Prerequisite
-
-`gws` must be authenticated. Check with `gws auth status` — if `auth_method` is `none`, stop and
-tell the user to run `gws auth setup` themselves (interactive browser login, cannot be automated).
+in `resume/base_resume.md`, plus skills listed in `resume/skills_inventory.md`. Each job's
+`gap_keywords` are tools the candidate does NOT have — never mention them, even though the JD asks.
+They are tracked in `keyword_gaps.md` for the human to review instead.
 
 ## Procedure
 
-Read `output/scored_jobs.json` and filter to entries where `qualified == true`. For each one, run
-all of the following steps. If any step for a job fails, record it as `flagged` (see step 9) and
-move on to the next job rather than stopping the whole run.
+Read `output/scored_jobs.json`, filter to `qualified == true` (keyword match ≥ 50%; run
+`scripts/score_jobs.py` first if the file is missing). Run `scripts/company_research.py` if jobs
+lack `company_focus`. For each job, do all steps; if one fails, record it as flagged (step 7) and
+move on.
 
-1. Read `resume/base_resume.md`.
+1. Read `resume/base_resume.md` and the job's `matched_keywords` (`[{keyword, skill}]` — JD
+   wording → the candidate's real skill), `gap_keywords`, `title_family`, `company_focus`.
 
-2. Write a tailored version of the resume, preserving the same section headers exactly
-   (`## Summary`, `## Skills`, `## Experience`, `## Projects`, `## Education`, `## Certifications`):
-   - **Summary**: reword to mirror the job's language/keywords.
-   - **Skills**: reorder so items matching the job's `matched_must_haves` appear first.
-   - **Experience**: reorder/re-emphasize existing bullets toward what the job asks for. Do not
-     alter dates, employers, titles, or the substance of any bullet — only reorder bullets and
-     lightly reword phrasing, never metrics.
-   - **Projects**: carry over unchanged, but reorder bullets to surface whichever are most
-     relevant to this job.
-   - Education and Certifications: carry over unchanged.
+2. Write the tailored resume in the same markdown structure as the base resume:
+   - Header block copied exactly, except the line under `# Name` becomes `title_family`.
+   - `## Summary`: 3 sentences leading with the real title, "8+ years" (exactly), and the top
+     matched keywords — claiming only domains/responsibilities the base resume states — then the
+     closing sentence `Looking to bring this experience to {company}'s work in {company_focus}.`
+   - `## Skills`: first line `- Core Skills for This Role: ` + every matched keyword in the JD's
+     wording (this is what guarantees ATS coverage), then the base resume's category lines,
+     most relevant category first and JD-matched items first within each line. Nothing else.
+   - `## Experience` / `## Projects`: keep every heading, date and location line exactly; **reorder
+     bullets only, word for word** (same as the automated path — rewording is where fabrication
+     and garbling crept in during testing).
+   - `## Education`, `## Certifications`: copy unchanged.
 
-3. Compute filesystem-safe versions of the company name and job title: strip characters Windows
-   forbids in file/folder names (`< > : " / \ | ? *`), collapse repeated whitespace, and trim —
-   call these `safe_company` and `safe_title`. Compute:
-   - `folder_name = f"{safe_company} - {safe_title}"` (e.g. `"Adobe - Senior Data Engineer"`)
-   - `resume_title = f"Chidvilas Parusha {safe_title} Resume"`
-     (e.g. `"Chidvilas Parusha Senior Data Engineer Resume"`)
+3. Compute `safe_company` / `safe_title` (strip `< > : " / \ | ? *`, collapse whitespace), then
+   `folder_name = f"{safe_company} - {safe_title}"` and
+   `resume_title = f"Chidvilas Parusha {safe_title} Resume"`.
 
-4. Write the tailored text to `output/tailored/{folder_name}.md` using the Write tool. A
-   `PreToolUse` hook (`.claude/hooks/resume_hook.py`) checks this write automatically — it
-   blocks (and prints a reason) if required sections are missing or placeholder text remains. If
-   the write is blocked, skip to step 9 for this job with `status: flagged_validation_failed` and
-   the hook's reason — do not attempt the remaining steps.
+4. Write it to `output/tailored/{folder_name}.md` with the Write tool. The `PreToolUse` hook
+   (`.claude/hooks/resume_hook.py`) blocks the write if required sections are missing or
+   placeholder text remains — if blocked, fix and rewrite once, else flag the job.
 
-5. Create the job folder with `mkdir -p`:
+5. Run the full v2 validator (keyword coverage, no-fabrication, facts unchanged):
+   ```bash
+   python3 scripts/validate_resume.py "output/tailored/{folder_name}.md" "{job key}"
+   ```
+   On `FAIL`, fix exactly the listed problems, rewrite (step 4) and re-validate once. A second
+   failure → flag with `status: flagged_validation_failed` and the reasons.
+
+6. Render the branded PDF straight into the job folder (accent color comes from the company logo):
    ```bash
    mkdir -p "/c/Users/chidv/OneDrive/Documents/documents/docs new/Chidvilas Resume/Resume/{folder_name}"
+   python3 scripts/render_resume.py "output/tailored/{folder_name}.md" \
+     "/c/Users/chidv/OneDrive/Documents/documents/docs new/Chidvilas Resume/Resume/{folder_name}/{resume_title}.pdf" \
+     --logo "{company_logo}" --title "{resume_title}"
    ```
+   Open the PDF and check it reads well (≤ 2 pages, no markdown symbols).
 
-6. Create a Google Doc:
-   ```
-   gws docs documents create --json '{"title": "{resume_title}"}'
-   ```
-   Capture the returned `documentId`.
-
-7. Populate the doc with real formatting via `scripts/format_resume_doc.py` — **do not** use
-   `gws docs +write` with the raw markdown text; it inserts `#`/`##`/`###`/`-` as literal visible
-   characters instead of converting them to headings/bullets, which reads as broken and
-   unprofessional (confirmed by visual inspection, not just a style preference). The script parses
-   the markdown structure from step 2 and applies real bold section headers, bold job titles,
-   italic date lines, and native bullet lists — no markdown syntax left in the visible text:
-   ```
-   python3 scripts/format_resume_doc.py output/tailored/{folder_name}.md "$DOCUMENT_ID"
-   ```
-
-8. Export the doc straight to the job folder as a PDF, then delete the intermediate doc (note:
-   `files` is a sub-resource of `drive`, not a top-level service — `gws drive files ...`).
-   `--output` for `gws drive files export` is sandboxed to the current directory, so `cd` into the
-   job folder first and export with a relative filename — an absolute path is rejected. The delete
-   call's empty response gets written to a stray `download.html` file in the current directory
-   (passing `--output /dev/null` does NOT suppress this on Windows — it just creates a literal
-   file named `nul` instead via a raw path override), so remove that stray file afterward:
-   ```bash
-   cd "/c/Users/chidv/OneDrive/Documents/documents/docs new/Chidvilas Resume/Resume/{folder_name}"
-   gws drive files export --params '{"fileId": "'"$DOCUMENT_ID"'", "mimeType": "application/pdf"}' \
-     --output "{resume_title}.pdf"
-   gws drive files delete --params '{"fileId": "'"$DOCUMENT_ID"'"}'
-   rm -f download.html
-   cd -
-   ```
-
-9. Append a record for this job to `output/tailored_jobs.json` (create the file with an empty
-   array first if it doesn't exist yet):
+7. Append a record to `output/tailored_jobs.json` (create it as `[]` first if missing). Carry over
+   `key, source, title, company, link, match_pct, matched_keywords, gap_keywords, company_notes`
+   from the scored job and add:
    ```json
    {
-     "title": "...", "company": "...", "link": "...", "score": ...,
      "desktop_folder": "C:\\Users\\chidv\\OneDrive\\Documents\\documents\\docs new\\Chidvilas Resume\\Resume\\{folder_name}",
      "desktop_file": "C:\\Users\\chidv\\OneDrive\\Documents\\documents\\docs new\\Chidvilas Resume\\Resume\\{folder_name}\\{resume_title}.pdf",
      "status": "saved"
    }
    ```
-   Use `"status": "flagged_validation_failed"` and add a `"reason"` field for jobs blocked at
-   step 4. Omit `desktop_folder`/`desktop_file` for flagged jobs (nothing was saved).
+   Flagged jobs: `"status": "flagged_validation_failed"` plus `"reason"`, no desktop fields.
 
-10. After processing every qualifying job, print a one-line summary:
-    `f"{qualified_count} qualified, {saved_count} saved, {flagged_count} flagged"`.
+8. After all jobs, print `f"{qualified_count} qualified, {saved_count} saved, {flagged_count} flagged"`,
+   then offer to run `python3 scripts/write_sheet.py` to log the saved ones.

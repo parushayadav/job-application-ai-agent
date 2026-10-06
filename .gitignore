@@ -5,3 +5,4 @@ __pycache__/
 output/
 resume/base_resume.md
 resume/*.pdf
+state/

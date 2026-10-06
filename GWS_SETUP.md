@@ -34,12 +34,14 @@ gws --version
 
 ```bash
 gws auth setup     # walks you through creating a Cloud project + enabling APIs
-gws auth login -s drive,docs,sheets
+gws auth login --scopes "https://www.googleapis.com/auth/drive,https://www.googleapis.com/auth/documents,https://www.googleapis.com/auth/spreadsheets"
 ```
 
 > **Scope warning:** an unverified ("testing mode") OAuth app can only consent to ~25 scopes.
 > `gws auth login` with no `-s` flag defaults to a much larger "recommended" preset and will fail.
-> Always pass `-s drive,docs,sheets` for this project.
+> Always pass the three explicit `--scopes` above. `-s drive,docs,sheets` only narrows a picker and can
+> leave the token with no Drive/Docs/Sheets scopes (`403 insufficient authentication scopes`); check
+> with `gws auth status`.
 
 ### Option B — no `gcloud`, manual Google Cloud Console setup
 
@@ -47,7 +49,10 @@ gws auth login -s drive,docs,sheets
    an existing one).
 2. Open **APIs & Services → OAuth consent screen** for that project:
    - App type: **External**
-   - Testing mode is fine — you do not need to submit for verification for personal use.
+   - **For the Modal cron, set Publishing status to "In production"** (Audience → Publish app).
+     In Testing mode Google expires refresh tokens after **7 days**, and the scheduled run then
+     fails with `invalid_grant`. You do not need to submit for verification for personal use —
+     you'll just see a "Google hasn't verified this app" warning at login.
 3. Under **Test users**, click **Add users** and add your own Google account email. Skipping this
    step is the #1 cause of a generic "Access blocked" error on login.
 4. Open **APIs & Services → Credentials → Create Credentials → OAuth client ID**:
@@ -58,7 +63,7 @@ gws auth login -s drive,docs,sheets
    ```
 6. Log in:
    ```bash
-   gws auth login -s drive,docs,sheets
+   gws auth login --scopes "https://www.googleapis.com/auth/drive,https://www.googleapis.com/auth/documents,https://www.googleapis.com/auth/spreadsheets"
    ```
 
 Either path opens a browser for the OAuth consent screen. Approve it, and `gws` stores encrypted
@@ -98,6 +103,7 @@ credential and should never be committed or left sitting on disk.
 | "Access blocked: ... has not completed the Google verification process" | Add yourself as a test user (Option B, step 3) |
 | Scope picker fails / consent screen errors on a wide scope preset | Use `-s drive,docs,sheets` explicitly, not the default preset |
 | "Google hasn't verified this app" warning during login | Expected in testing mode — click **Continue** |
+| Modal run fails with `invalid_grant` | Refresh token expired (Testing mode = 7-day tokens) or revoked. Publish the app to "In production", re-run the `--scopes` login above, re-export, and update the `gws-credentials` secret |
 | Works locally but fails on Modal | Confirm the `gws-credentials` Modal secret has all four fields (`client_id`, `client_secret`, `refresh_token`, `type`) |
 
 Full reference: [github.com/googleworkspace/cli](https://github.com/googleworkspace/cli)

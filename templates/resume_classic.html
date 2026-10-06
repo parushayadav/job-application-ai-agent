@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<title>__TITLE__</title>
+<!--
+  "Classic accent" resume template (PRD v2 4.6). Filled by scripts/render_resume.py.
+  ATS rules: single column, real text only, standard section names, no tables/images/icons,
+  and NO letter-spacing -- Chrome emits letter-spaced text as separate glyph runs, which text
+  extraction (what an ATS does) reads back as "SKI L LS".
+-->
+<style>
+  @font-face { font-family: "Source Sans 3"; font-weight: 400; src: url("__FONT_DIR__/SourceSans3-Regular.ttf"); }
+  @font-face { font-family: "Source Sans 3"; font-weight: 600; src: url("__FONT_DIR__/SourceSans3-Semibold.ttf"); }
+  @font-face { font-family: "Source Sans 3"; font-weight: 700; src: url("__FONT_DIR__/SourceSans3-Bold.ttf"); }
+  @font-face { font-family: "Source Sans 3"; font-style: italic; src: url("__FONT_DIR__/SourceSans3-It.ttf"); }
+
+  :root { --accent: __ACCENT__; --ink: #1f2328; --muted: #57606a; --rule: #d0d7de; }
+  @page { size: Letter; margin: 0.45in 0.55in; }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: "Source Sans 3", Arial, sans-serif; font-size: 10pt;
+         line-height: 1.3; color: var(--ink); }
+  header { border-bottom: 2.5pt solid var(--accent); padding-bottom: 5pt; margin-bottom: 4pt; }
+  h1 { margin: 0; font-size: 22pt; line-height: 1.1; color: var(--accent); font-weight: 700; }
+  .headline { margin: 2pt 0 2pt; font-size: 11.5pt; font-weight: 600; }
+  .contact { margin: 0; font-size: 9.5pt; color: var(--muted); }
+  h2 { margin: 8pt 0 3pt; font-size: 11pt; font-weight: 700; text-transform: uppercase;
+       color: var(--accent); border-bottom: 0.75pt solid var(--rule); padding-bottom: 1.5pt;
+       break-after: avoid-page; }
+  p { margin: 0; }
+  ul { margin: 2pt 0 0; padding-left: 13pt; }
+  li { margin: 1.2pt 0; }
+  li::marker { color: var(--accent); }
+  ul.skills { padding-left: 0; list-style: none; }
+  ul.skills li { margin: 1.5pt 0; }
+  .entry { margin-top: 5pt; }
+  .entry-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12pt;
+                break-after: avoid-page; }
+  .entry-title { font-weight: 700; font-size: 10.5pt; }
+  .entry-dates { color: var(--muted); font-size: 9.5pt; white-space: nowrap; }
+  .entry-meta { color: var(--muted); font-style: italic; font-size: 9.5pt; break-after: avoid-page; }
+
+  /* Density steps, applied by render_resume.py only when the page count exceeds the max. */
+  body.compact { font-size: 9.6pt; line-height: 1.24; }
+  body.compact h2 { margin: 6pt 0 2pt; }
+  body.compact .entry { margin-top: 3.5pt; }
+  body.compact li { margin: 0.6pt 0; }
+  body.tight { font-size: 9.2pt; line-height: 1.2; }
+  body.tight h1 { font-size: 20pt; }
+  body.tight h2 { margin: 5pt 0 1.5pt; font-size: 10.5pt; }
+  body.tight .entry { margin-top: 3pt; }
+  body.tight li { margin: 0.3pt 0; }
+</style></head>
+<body class="__DENSITY__">
+__BODY__
+</body></html>
