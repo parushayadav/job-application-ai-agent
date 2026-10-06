@@ -11,7 +11,8 @@ To add a skill: put it under the right category **only if you have actually used
 `py -3.12 -m modal deploy modal_app.py` so the daily job picks it up. See `keyword_gaps.md` for
 keywords jobs keep asking for that aren't here yet.
 
-Seeded 2026-10-05 from `base_resume.md`.
+Seeded 2026-10-05 from `base_resume.md`. 2026-10-06: owner confirmed hands-on use of MCP, RAG, dbt,
+LangChain, Pydantic and Apache Kafka (added or already present).
 
 ## Cloud Platforms
 - Microsoft Azure | Azure
@@ -43,6 +44,7 @@ Seeded 2026-10-05 from `base_resume.md`.
 - Apache Hadoop | Hadoop, HDFS
 - Streaming ETL | stream processing, real-time streaming, real-time data pipelines
 - Batch Processing | batch pipelines
+- dbt | dbt Core, dbt Cloud, data build tool
 
 ## Orchestration & ETL
 - Apache Airflow | Airflow
@@ -87,6 +89,10 @@ Seeded 2026-10-05 from `base_resume.md`.
 - NumPy
 - Anomaly Detection
 - Claude | Anthropic Claude, Anthropic
+- Model Context Protocol | MCP, MCP servers
+- RAG | retrieval-augmented generation, retrieval augmented generation
+- LangChain | Lang Chain
+- Pydantic | Pydantic models
 - OpenAI | OpenAI API
 
 ## Architecture & Practices
