@@ -78,8 +78,29 @@ def docx_text(path):
     return text, problems
 
 
+TECH_LOWER = {t.lower() for t in TECH_TERMS}
+
+
+def is_specific(term, index):
+    """True for a concrete tool/technology, False for a generic phrase.
+
+    The free scoring model sometimes returns phrases like "data pipelines", "cloud storage",
+    "unit tests" or "slowly changing dimensions" as gap keywords. They are not tools, the
+    truthfulness check rightly keeps them off the resume, and counting them as missing hard
+    skills pushed honest resumes below 90 (live run 2026-10-06). Kept: inventory skills, known
+    technologies, single non-lowercase words (Debezium, Fivetran, Jira) and multi-word names with
+    a mixed-case token (GitLab CI, Google Cloud Pub/Sub)."""
+    if lookup(term, index) or term.strip().lower() in TECH_LOWER:
+        return True
+    tokens = [t for t in re.split(r"[\s/,]+", term.strip()) if t]
+    if len(tokens) == 1:
+        return not tokens[0].islower()
+    return any(re.search(r"[a-z]", t) and re.search(r"[A-Z]", t[1:]) for t in tokens)
+
+
 def jd_tech_keywords(jd, company, matched, gaps):
-    """Technology keywords the JD asks for: the scorer's lists plus a fresh scan."""
+    """Technology keywords the JD asks for: the scorer's lists (generic phrases dropped) plus a
+    fresh scan."""
     text = re.sub(re.escape(company), " ", jd, flags=re.IGNORECASE) if company else jd
     found, seen = [], set()
 
@@ -90,9 +111,10 @@ def jd_tech_keywords(jd, company, matched, gaps):
             seen.add(key)
             found.append(term)
 
-    for term in list(matched) + list(gaps):
-        add(term)
     items = load_inventory()
+    index = build_index(items)
+    for term in list(matched) + [g for g in gaps if is_specific(g, index)]:
+        add(term)
     for item in items:
         for term in sorted([item["name"], *item["aliases"]], key=len, reverse=True):
             if appears_in(text, term):
