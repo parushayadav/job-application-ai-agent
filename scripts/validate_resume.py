@@ -23,7 +23,7 @@ from text_rules import has_em_dash
 
 REQUIRED_SECTIONS = ["## Summary", "## Skills", "## Experience"]
 PLACEHOLDER_MARKERS = ["[placeholder]", "todo", "tbd", "lorem ipsum", "{{", "}}"]
-NUMBER_TOKEN = re.compile(r"\d[\d,.\-]*(?:[KMB]\+?|%|\+)?")
+NUMBER_TOKEN = re.compile(r"(?<![A-Za-z])\d[\d,.\-]*(?:[KMB]\+?|%|\+)?")  # skip S3, EC2, Gen2
 
 
 def validate(content):
