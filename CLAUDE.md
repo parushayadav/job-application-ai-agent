@@ -25,6 +25,11 @@ company color, <= 2 pages via LibreOffice page count) and ATS-scores it (`ats_ch
 scores it, uploads `Claude Resumes/<YYYY-MM-DD> - <Company> - <Title>/Chidvilas Parusha
 <Title>.docx`, and fills the row's Resume Path (clickable path), ATS Score and Resume Notes.
 
+Rule 2026-10-07: every queued job gets a resume. A required tool he lacks (e.g. Palantir
+Foundry) is never a reason to skip: Claude builds around his closest tools and lists the missing
+one in Resume Notes. If a flagged or empty draft ever arrives, `render_claude_resumes.py` builds
+the base resume for that row instead of leaving Resume Path blank.
+
 Sheet columns (A-N): Job Title, Company, Job Link, Match %, Resume Path, ATS Score, Status,
 Timestamp, Company Notes, Matched Keywords, Keyword Gaps, Source, Fingerprint, Resume Notes.
 `write_sheet.migrate_layout()` inserted ATS Score at F once (older rows shift right intact).

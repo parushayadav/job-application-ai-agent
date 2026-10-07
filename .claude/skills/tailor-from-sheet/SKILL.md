@@ -69,6 +69,15 @@ What may be claimed
   those); JD wants Fivetran or Airbyte -> "built batch and streaming data ingestion pipelines"
   (plus ADF / Talend / Kinesis where relevant). Name a specific tool only if it is in the
   inventory.
+- **A missing tool never stops a resume, even a mandatory one** (rule from Chidvilas
+  2026-10-07). When the JD's required platform is not in the inventory (e.g. "1+ years Palantir
+  Foundry / AIP"), build the resume around the closest tools he HAS for the same job and the
+  JD's capability wording: Palantir Foundry / pipeline builder -> his ETL and data integration
+  platforms (Databricks, Azure Data Factory, Informatica, Talend, SSIS, dbt) plus "data
+  integration, ontology-style semantic data modeling, operational data applications"; AIP ->
+  his LLM, RAG, LangChain and MCP work. Aim for the maximum honest match, put the missing tool
+  in `notes:` ("JD requires Palantir Foundry: not claimed, built around Databricks/ADF/
+  Informatica ETL"), and save it as `status: ready`.
 - Timeline sanity: never place a tool in a role that ended before the tool existed (an
   interviewer spots it instantly). Rough first-available years: Delta Lake 2019, Unity Catalog
   2022, Delta Live Tables 2022, Delta Sharing 2021, Microsoft OneLake/Fabric 2023, Snowpark 2021,
@@ -177,7 +186,7 @@ version that passes the truthfulness check and explain the shortfall in the note
    ats: 93
    notes: <see below>
    -->
-   # CHIDVILAS PARUSHA
+   # Chidvilas Parusha
    ...
    ```
    `notes:` is ONE line (no line breaks) for Chidvilas to read before he submits: what the
@@ -185,12 +194,14 @@ version that passes the truthfulness check and explain the shortfall in the note
    that he lacks (so he can prepare an answer); anything he should check or change by hand
    before submitting (e.g. "confirm the MCP bullet wording", "JD asks for on-site in Austin",
    "requires US citizenship"). Modal adds the ATS score breakdown to it.
-5. If a job should not get a resume (not really an engineering role he fits, unusable
-   description, or the truthfulness check keeps failing), save a draft with only the header,
-   `status: flagged` and the reason in `notes:`. Modal writes `FLAGGED ...` into the Sheet row.
+5. Every job in the queue gets a resume: never save a header-only draft. Missing or mandatory
+   tools, years required, travel or pre-sales duties are reasons to write a note, not to skip
+   the job. Only if the description is unusable (empty or not a job posting) build from the
+   base resume with the job's title as headline, and say so in `notes:`. (`status: flagged`
+   is retired; if one ever arrives, Modal builds the base resume for that row instead of
+   leaving it blank.)
 
 ## Finish
 
-Report in a few lines: drafts written (company, title, ATS score), jobs below 90 and why, jobs
-flagged and why, jobs left in the queue for the next run. The Word files and Sheet entries
+Report in a few lines: drafts written (company, title, ATS score), jobs below 90 and why, jobs left in the queue for the next run. The Word files and Sheet entries
 appear after Modal's :55 run.

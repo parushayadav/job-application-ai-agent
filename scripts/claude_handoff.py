@@ -22,11 +22,14 @@ Draft format: an HTML comment block, then the resume markdown.
     <!-- claude-resume
     key: linkedin:4012345678
     accent: #005EB8
-    status: ready            (or: flagged)
+    status: ready            (flagged is retired: Modal then builds the base resume)
     ats: 93
     notes: Fintech payments company; JD stresses Snowflake (you lack it), mention Databricks SQL
     -->
-    # CHIDVILAS PARUSHA
+    # Chidvilas Parusha
+
+A draft for a job that is no longer in the queue may add title:, headline:, company:, link:,
+jd: (the description on one line), matched: and gaps: (comma separated) to its header.
     ...
 """
 import json

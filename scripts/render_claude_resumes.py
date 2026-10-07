@@ -3,8 +3,8 @@
 See claude_handoff.py for the whole flow. For every markdown draft in Drive
 `Claude Resumes/_working/_drafts`:
   1. download it and split the <!-- claude-resume --> header from the resume;
-  2. status "flagged": only write Claude's notes into the Sheet row (no resume);
-     otherwise check the structure (validate_resume.validate), build the Word file
+  2. status "flagged" or no resume body: use the base resume (job title as headline), so no
+     row is left without a resume; then check the structure (validate_resume.validate), build the Word file
      (build_docx.py: Calibri, company color, <= 2 pages) and score it (ats_check.py);
   3. upload it to `Claude Resumes/<YYYY-MM-DD> - <Company> - <Title>/Chidvilas Parusha <Title>.docx`
      and fill the job's row: Resume Path (clickable path to the file), ATS Score, Resume Notes;
@@ -83,6 +83,26 @@ def write_cells(sheet_id, row, values):
             "--json", json.dumps({"values": [[value]]}))
 
 
+def job_from_meta(meta):
+    """A job that already left the queue (e.g. re-tailored by hand): the draft header carries
+    title, company, link, jd (one line), matched and gaps (comma separated)."""
+    split = lambda v: [x.strip() for x in (v or "").split(",") if x.strip()]
+    return {"title": meta.get("title", ""), "headline": meta.get("headline", ""),
+            "company": meta.get("company", ""), "link": meta.get("link", ""),
+            "description": meta.get("jd", ""), "matched_keywords": split(meta.get("matched")),
+            "gap_keywords": split(meta.get("gaps"))}
+
+
+def base_resume_for(title, workdir):
+    """The base resume from Drive, with its headline (line 2) replaced by the job title."""
+    gws("drive", "files", "get", "--params", json.dumps(
+        {"fileId": handoff.BASE_RESUME_FILE_ID, "alt": "media"}), "-o", "base.md", cwd=workdir)
+    lines = (Path(workdir) / "base.md").read_text(encoding="utf-8").splitlines()
+    if len(lines) > 1 and lines[0].startswith("# "):
+        lines[1] = clean_dashes(title)
+    return "\n".join(lines) + "\n"
+
+
 def safe_name(text, limit=80):
     text = re.sub(r"\s+", " ", re.sub(r'[<>:"/\\|?*]', "", text or "")).strip()
     return clean_dashes(text)[:limit].strip()
@@ -97,16 +117,19 @@ def process(draft, sheet_id, rows, workdir):
     text = download_text(draft["id"], workdir)
     meta, resume = handoff.parse_draft(text)
     key = meta.get("key", "")
-    job = handoff.awaiting().get(key, {})
+    job = handoff.awaiting().get(key) or job_from_meta(meta)
     row = rows.get(key) or rows.get(link_key(job.get("link", "")))
     if not row:
         raise ValueError(f"no Sheet row for {key or draft['name']}")
     now = datetime.now(EASTERN)
     notes = notes_text(meta.get("notes", ""))
 
-    if meta.get("status", "ready").lower() == "flagged":
-        write_cells(sheet_id, row, {"Resume Notes": f"FLAGGED {now:%Y-%m-%d %H:%M}: {notes}"})
-        return key, f"flagged ({notes})"
+    if meta.get("status", "ready").lower() == "flagged" or not resume.strip():
+        # Never leave a job without a resume (rule 2026-10-07): fall back to the base resume
+        # with the job's title as the headline, and keep Claude's reason in the notes.
+        resume = base_resume_for(job.get("headline") or job.get("title") or "Data Engineer",
+                                 workdir)
+        notes = notes_text(f"BASE RESUME (not tailored, review before submitting): {notes}")
 
     ok, reason = validate(resume)
     if not ok:
