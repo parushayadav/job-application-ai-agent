@@ -18,7 +18,7 @@ The free-model resumes were not good enough, so the Modal pipeline no longer wri
 `run_pipeline` (5:00/14:00/21:00 ET) logs qualified jobs to the Sheet and lists them, with their
 job descriptions, in Drive `Claude Resumes/_working/claude_queue.json` -> a Claude scheduled task
 (5:15/14:15/21:15 ET) follows `.claude/skills/tailor-from-sheet/SKILL.md`: writes each resume,
-checks truthfulness (`check_resume.py`), builds the Word file (`build_docx.py`: Times New Roman,
+checks truthfulness (`check_resume.py`), builds the Word file (`build_docx.py`: Calibri,
 company color, <= 2 pages via LibreOffice page count) and ATS-scores it (`ats_check.py`, target
 90, at most 10 minutes per resume), then saves a markdown draft to `_working/_drafts` ->
 `render_resumes` (5:55/14:55/21:55 ET, and at the start of every run) rebuilds the same Word file,

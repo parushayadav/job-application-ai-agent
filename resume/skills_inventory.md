@@ -105,6 +105,9 @@ LangChain, Pydantic and Apache Kafka (added or already present).
 - Data Lineage | lineage tracking
 - Cloud Migration
 - Code Review
+- Performance Optimization | performance tuning, query optimization, performance and cost tuning
+- Schema Design | schema modeling
+- Cost Optimization | cost management, compute cost optimization
 
 ## CI/CD & DevOps
 - CI/CD
@@ -132,3 +135,57 @@ LangChain, Pydantic and Apache Kafka (added or already present).
 - Agile | Scrum
 - Linux
 - Data Pipeline Monitoring | observability, pipeline monitoring
+## Confirmed by Chidvilas 2026-10-07 (from the Sheet's keyword gaps; see tool_review.md)
+- Snowflake | Snowflake Data Cloud
+- Snowpark
+- Snowpipe | Snowpipe Streaming, Snow pipe Streaming
+- Snowflake Cortex AI | Cortex AI, Snowflake Cortex
+- Salesforce | Salesforce CRM
+- Amazon Redshift | Redshift
+- Amazon Athena | Athena
+- Amazon Kinesis | Kinesis, Kinesis Data Streams, Kinesis Data Firehose
+- Amazon SQS | SQS
+- Amazon MWAA | MWAA, Managed Workflows for Apache Airflow
+- AWS Step Functions | Step Functions
+- Amazon EMR | EMR, Elastic MapReduce
+- Amazon DynamoDB | DynamoDB
+- Amazon RDS | RDS
+- AWS IAM | IAM
+- Amazon CloudWatch | CloudWatch
+- AWS CloudFormation | CloudFormation
+- Amazon ECS | ECS
+- Amazon EKS | EKS
+- Serverless | serverless computing
+- Amazon Bedrock | Bedrock, AWS Bedrock
+- Apache Iceberg | Iceberg
+- Parquet | Apache Parquet
+- Delta Lake Optimization | OPTIMIZE, Z-ORDER, Z-Ordering, VACUUM
+- Delta Sharing
+- Microsoft OneLake | OneLake
+- Apache Hive | Hive
+- Teradata
+- Change Data Capture | CDC
+- Azure Stream Analytics
+- Azure Blob Storage | Blob Storage
+- AzCopy
+- Bicep | Azure Bicep
+- Talend
+- Data Masking | data de-identification, de-identification
+- Data Vault | Data Vault modeling, Data Vault 2.0
+- Scala
+- SQL Window Functions | window functions, CTEs, common table expressions
+- Kubernetes | K8s
+- Microservices
+- GitLab | GitLab CI, GitLab CI/CD
+- GitHub
+- SonarQube
+- Jira
+- Confluence
+- SSRS | SQL Server Reporting Services
+- MongoDB
+- Apache Cassandra | Cassandra
+- TensorFlow
+- PyTorch
+- Flask
+- GraphQL
+- Workday

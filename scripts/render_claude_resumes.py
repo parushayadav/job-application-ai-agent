@@ -5,7 +5,7 @@ See claude_handoff.py for the whole flow. For every markdown draft in Drive
   1. download it and split the <!-- claude-resume --> header from the resume;
   2. status "flagged": only write Claude's notes into the Sheet row (no resume);
      otherwise check the structure (validate_resume.validate), build the Word file
-     (build_docx.py: Times New Roman, company color, <= 2 pages) and score it (ats_check.py);
+     (build_docx.py: Calibri, company color, <= 2 pages) and score it (ats_check.py);
   3. upload it to `Claude Resumes/<YYYY-MM-DD> - <Company> - <Title>/Chidvilas Parusha <Title>.docx`
      and fill the job's row: Resume Path (clickable path to the file), ATS Score, Resume Notes;
   4. move the draft to `_done` and drop the job from claude_queue.json.

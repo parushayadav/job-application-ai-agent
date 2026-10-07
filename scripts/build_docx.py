@@ -5,15 +5,16 @@ Claude's resumes).
 
 Input is the same markdown every resume path uses (# name, headline, contact line, ## sections,
 ### roles with a date line, "- " bullets, "Skills:" lines). Output rules, chosen with Chidvilas:
-- Times New Roman throughout (chosen by Chidvilas 2026-10-06; Garamond was tried and dropped
-  because it ran to 3 pages in Word); name and section headings in the company's brand color
-  (darkened for contrast), everything else black.
+- Calibri throughout (chosen by Chidvilas 2026-10-07, after Times New Roman and Garamond); name,
+  section headings and each role's dates in the company's brand color (darkened for contrast),
+  dates bold; everything else black.
 - ATS-safe structure: one column, real paragraphs, Word's own bullet list style, no tables,
   text boxes, images, headers or footers; contact details in the body; standard headings.
 - At most 2 pages: tries progressively smaller font sizes / margins and keeps the first layout
-  LibreOffice paginates to <= 2 pages. Liberation Serif (installed with LibreOffice, and on
-  Modal via fonts-liberation) has Times New Roman's exact metrics, and every line has an exact
-  height, so the count matches Word.
+  LibreOffice paginates to <= 2 pages. Carlito (fonts-crosextra-carlito) has Calibri's exact
+  metrics, and every line has an exact height, so the count matches Word.
+- line_fill() reports bullets whose last line is mostly empty, so the wording can be adjusted to
+  fill lines instead of wasting them (--fill-report on the command line).
 """
 import argparse
 import re
@@ -33,10 +34,17 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from render_resume import DEFAULT_ACCENT, HEX_COLOR, _readable
 from text_rules import clean_dashes
 
-FONT = "Times New Roman"
+FONT = "Calibri"
 MAX_PAGES = 2
 # (body pt, margin inches) from roomiest to tightest
-LAYOUTS = [(11, 0.75), (10.5, 0.7), (10.5, 0.6), (10, 0.6), (10, 0.5), (9.5, 0.5)]
+LAYOUTS = [(11, 0.75), (11, 0.6), (10.5, 0.6), (10.5, 0.5), (10, 0.5), (9.5, 0.5)]
+BULLET_INDENT_IN = 0.25   # Word's "List Bullet" text indent in this template
+# Carlito has Calibri's exact metrics: used by LibreOffice for the page count and by
+# line_fill() to measure where each bullet's text wraps.
+CARLITO_CANDIDATES = [
+    "/usr/share/fonts/truetype/crosextra/Carlito-Regular.ttf",
+    "/usr/share/fonts/crosextra/Carlito-Regular.ttf",
+]
 DATE_LINE = re.compile(r"\b(19|20)\d{2}\b|\bPresent\b", re.IGNORECASE)
 
 
@@ -150,10 +158,11 @@ def build(md_text, out_path, accent=None, title="Resume", body_pt=11, margin_in=
                 _add_runs(role_par, line[4:], body_pt, bold=True)
                 expect_date = True
             elif expect_date and DATE_LINE.search(line) and len(line) < 60:
-                # Dates right-aligned on the role line via a tab stop (no tables: ATS-safe).
+                # Dates right-aligned on the role line via a tab stop (no tables: ATS-safe),
+                # bold in the company color so the timeline stands out.
                 role_par.paragraph_format.tab_stops.add_tab_stop(content_width,
                                                                  WD_TAB_ALIGNMENT.RIGHT)
-                _set_font(role_par.add_run("\t" + line), body_pt)
+                _set_font(role_par.add_run("\t" + line), body_pt, bold=True, color=color)
                 expect_date = False
             elif line.startswith("- "):
                 text = line[2:]
@@ -215,14 +224,62 @@ def count_pages(docx_path):
         return len(re.findall(rb"/Type\s*/Page(?![s\w])", pdf.read_bytes()))
 
 
+def _carlito():
+    for path in CARLITO_CANDIDATES:
+        if Path(path).exists():
+            return path
+    try:
+        found = subprocess.run(["fc-match", "-f", "%{file}", "Carlito"], capture_output=True,
+                               text=True).stdout.strip()
+        return found if found and "arlito" in found else None
+    except Exception:
+        return None
+
+
+def line_fill(md_text, body_pt, margin_in):
+    """-> [(role heading, bullet text, lines, last-line fill 0..1)] for every experience bullet,
+    wrapping words greedily at the bullet's text width, measured with Calibri's metrics."""
+    from PIL import ImageFont
+    path = _carlito()
+    if not path:
+        return []
+    font = ImageFont.truetype(path, size=100)          # measure at 100 units, scale to pt
+    scale = body_pt / 100.0
+    width_pt = (8.5 - 2 * margin_in - BULLET_INDENT_IN) * 72
+
+    def text_width(text):
+        return font.getlength(text) * scale
+
+    out, role = [], None
+    _, _, sections = parse(clean_dashes(md_text))
+    for title_text, lines in sections:
+        if title_text.lower() not in ("experience", "projects"):
+            continue
+        for line in lines:
+            if line.startswith("### "):
+                role = line[4:]
+            elif line.startswith("- "):
+                text = re.sub(r"\*\*(.+?)\*\*", r"\1", line[2:])
+                n, current = 1, ""
+                for word in text.split():
+                    trial = f"{current} {word}".strip()
+                    if current and text_width(trial) > width_pt:
+                        n, current = n + 1, word
+                    else:
+                        current = trial
+                out.append((role, text, n, text_width(current) / width_pt))
+    return out
+
+
 def build_fitted(md_text, out_path, accent=None, title="Resume"):
     """Build with the roomiest layout that fits MAX_PAGES. -> (accent hex, pages, body pt)."""
-    pages = hex_color = body_pt = None
+    pages = hex_color = body_pt = margin = None
     for body_pt, margin in LAYOUTS:
         hex_color = build(md_text, out_path, accent, title, body_pt, margin)
         pages = count_pages(out_path)
         if pages is None or pages <= MAX_PAGES:
             break
+    build_fitted.last_layout = (body_pt, margin)
     return hex_color, pages, body_pt
 
 
@@ -232,8 +289,18 @@ if __name__ == "__main__":
     parser.add_argument("docx")
     parser.add_argument("--accent")
     parser.add_argument("--title", default="Resume")
+    parser.add_argument("--fill-report", action="store_true",
+                        help="list bullets whose last line is under 70%% full")
     args = parser.parse_args()
-    hex_color, pages, size = build_fitted(Path(args.markdown).read_text(encoding="utf-8"),
-                                          args.docx, args.accent, args.title)
+    md = Path(args.markdown).read_text(encoding="utf-8")
+    hex_color, pages, size = build_fitted(md, args.docx, args.accent, args.title)
     print(f"Built {args.docx} ({pages if pages is not None else '?'} pages, {size}pt "
           f"{FONT}, accent {hex_color})")
+    if args.fill_report:
+        body_pt, margin = build_fitted.last_layout
+        weak = [(r, t, n, f) for r, t, n, f in line_fill(md, body_pt, margin) if f < 0.7]
+        if not weak:
+            print("Line fill: every bullet's last line is at least 70% full")
+        for role, text, n, fill in weak:
+            print(f"  short last line ({fill:.0%} of line {n}) | {role.split('|')[1].strip()} | "
+                  f"{text[:70]}...")

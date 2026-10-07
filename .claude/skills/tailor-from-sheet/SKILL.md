@@ -47,40 +47,61 @@ If an id stops working, search Drive for the file or folder by title inside "Cla
    LibreOffice (`soffice`) is needed for the page count; if it is missing, build without the
    count and say so in the report.
 
-## Resume rules (agreed with Chidvilas, 2026-10-06)
+## Resume rules (agreed with Chidvilas, updated 2026-10-07)
 
-Truthfulness
-- Only claim what is in the base resume or `resume/skills_inventory.md`. A job's
-  `gap_keywords` that are not in the inventory are tools he does NOT have: never put them on the
-  resume. `scripts/check_resume.py` knows which gaps have since been added to the inventory.
+Goal: every resume reads as written for THIS job. Two resumes for different jobs should differ
+clearly in summary, bullet wording, bullet order and which tools appear where. A reshuffled base
+resume is a failure.
+
+What may be claimed
+- Everything in the base resume and in `resume/skills_inventory.md` is Chidvilas's real
+  experience. Inventory tools (including the "Confirmed by Chidvilas 2026-10-07" section:
+  Snowflake, Redshift, Iceberg, Kinesis, EMR, Kubernetes, Scala, CDC, Data Vault, data masking,
+  TensorFlow, PyTorch, GraphQL...) may be written as hands-on work in ANY role, used on demand:
+  only when this job's description asks for them.
+- A job's `gap_keywords` that are NOT in the inventory (check with `scripts/check_resume.py`)
+  stay off the resume. List them in `notes:` so he can prepare.
+- Timeline sanity: never place a tool in a role that ended before the tool existed (an
+  interviewer spots it instantly). Rough first-available years: Delta Lake 2019, Unity Catalog
+  2022, Delta Live Tables 2022, Delta Sharing 2021, Microsoft OneLake/Fabric 2023, Snowpark 2021,
+  Snowpipe Streaming 2023, Snowflake Cortex AI 2023, Amazon Bedrock 2023, Amazon MWAA 2020,
+  Apache Iceberg 2018, LangChain 2022, RAG/LLM tooling 2022+, MCP late 2024, Databricks Asset
+  Bundles 2023, dbt 2016, Kubernetes 2015. So: Yana (2017-2019) only pre-2019 tools; Cleveland
+  State (2021) nothing from 2022 on; HCL and Nomura can take nearly everything.
 - Employers, job titles, role headings (`### ...` lines), dates, locations, education and
-  certifications stay exactly as in the base resume.
-- No new numbers or metrics. Reuse the base resume's numbers only (300%, 64.4%, 100+, 50K+...).
-  "8+ years" stays exactly that.
-- MCP (Model Context Protocol), RAG, dbt, LangChain, Pydantic and Apache Kafka were used at
-  HCL / The Standard (Smart Claims Assistant). When the JD asks for them they may appear in
-  that role's bullets and Skills line, the summary and the Skills section. Describe them as
-  part of the work that role already lists (claims documents, data quality, streaming,
-  ingestion); do not invent outcomes or metrics for them, and never put them under other roles.
+  certifications stay exactly as in the base resume. Reuse only the base resume's numbers
+  (300%, 64.4%, 100+, 50K+, 5+, petabyte-scale...); "8+ years" stays exactly that.
 
 Content
 - Header: `# CHIDVILAS PARUSHA`, then the job's `headline` (fall back to a cleaned `title`),
   then the contact line copied exactly.
-- `## Summary`: 3 to 4 sentences, about 60 to 95 words. Open with the headline-style title and
-  "8+ years", weave in the JD's most important matched keywords in the JD's own wording, mention
-  only domains the base resume has (financial services, insurance, hospitality). End with one
-  sentence about the company using `company_focus` (or `company_notes`), phrased as an aspiration, e.g.
-  "Looking to bring this experience to Acme's work in payments infrastructure."
-- `## Skills`: first line `- Core Skills for This Role: ` + every `matched_keywords` entry plus
-  any `gap_keywords` entry now in the inventory, in the JD's wording. Then the base categories,
-  most relevant category first and JD-matched items first within each line. Add inventory
-  tools the JD asks for to the right category.
+- `## Summary`: 3 to 4 sentences, about 60 to 95 words, rebuilt for this job: open with the
+  headline-style title and "8+ years", then the JD's top 6 to 8 required technologies in the
+  JD's own wording, the kind of systems the JD describes, and the domains he has (financial
+  services, insurance, hospitality). End with one sentence about the company (see Company
+  facts), phrased as an aspiration.
+- `## Skills`: first line `- Core Skills for This Role: ` + every JD keyword he has (matched plus
+  any gap now in the inventory), in the JD's wording, most important first. Then the base
+  categories, most relevant first, JD items first within each line; add inventory tools the JD
+  asks for to the right category.
 - `## Education`, `## Certifications`: copy unchanged. Section order as in the base resume.
-- `## Experience`: keep every role. Reorder bullets so the most relevant come first, and reword
-  them toward the JD's language and keywords while keeping what was actually done, the tools
-  and the numbers. Keep each role's project description line and `Skills:` line (update the
-  Skills line order to put JD keywords first). Trim the least relevant bullets if needed to fit
-  two pages: about 8 to 10 for HCL and Nomura, 4 to 6 for Cleveland State, 3 to 5 for Yana.
+- `## Experience`: storytelling, not keyword lists. Each bullet = action + what was built (with
+  the JD's tools named in context) + why it mattered (a base resume number, or the business
+  effect the base resume describes). Keep each project's essence (Smart Claims Assistant
+  claims automation; Nomura petabyte market data platform; Cleveland State hospitality
+  analytics; Yana enterprise analytics) and its project description line.
+  - HCL / The Standard (latest): EVERY JD keyword he has must appear in HCL's bullets, woven
+    into the real SCA work (streaming claims ingestion, document intelligence, DLT medallion
+    pipelines, data quality framework, Salesforce integration, CI/CD...). Rewrite HCL bullets
+    toward the JD's responsibilities rather than reordering the base ones.
+  - Repeat the JD's must-have technologies across roles to show long, continuous experience:
+    each must-have keyword should appear in at least two roles (summary + Skills + HCL +
+    Nomura, and earlier roles where the timeline allows). ATS counts repetition.
+  - Bullet counts (max 10 per role, newest most): HCL 9 to 10, Nomura 7 to 9, Cleveland State
+    4 to 5, Yana 3 to 4. Update each role's `Skills:` line to the JD keywords used in it.
+- Full lines: every bullet should end near the end of a line. After building, run
+  `build_docx.py --fill-report`; reword any bullet whose last line is under 70% full (tighten it
+  to one fewer line or extend it with real detail to fill the line).
 
 Company facts
 - `company_notes` and `company_focus` come from a free model WITHOUT web access and can describe
@@ -98,11 +119,12 @@ Style and format
 - No filler: "leveraging", "spearheading", "passionate", "proven track record",
   "cutting-edge", "synergy", "results-driven". Plain, specific, active verbs.
 - Spell out an acronym once where the JD uses the long form, e.g. "Model Context Protocol (MCP)".
-- Output is a Word file built by `scripts/build_docx.py`: Times New Roman, single column, Word's
-  own bullets, standard headings, no tables, images, text boxes, headers or footers. It steps
-  the font from 11pt down to 9.5pt until the resume fits **2 pages**; if even 9.5pt needs a third
-  page, trim the least relevant bullets.
-- Accent color (name and section headings) = the company's main brand color as `#RRGGBB` (from
+- Output is a Word file built by `scripts/build_docx.py`: Calibri, single column, Word's own
+  bullets, standard headings, no tables, images, text boxes, headers or footers. It steps the
+  font from 11pt down to 9.5pt until the resume fits **2 pages**. Never more than 2 pages: if
+  even 9.5pt needs a third page, cut the least relevant bullets in the oldest roles first.
+- Accent color (name, section headings and the bold role dates) = the company's main brand
+  color as `#RRGGBB` (from
   what you know or a quick web search for "<company> brand color hex"). It is darkened for
   readability. If unsure, leave the `accent:` line out and navy is used.
 
@@ -120,7 +142,7 @@ version that passes the truthfulness check and explain the shortfall in the note
    ```
 3. Build the Word file and run the ATS check on it:
    ```bash
-   python3 scripts/build_docx.py output/tailored/<id>.md output/docx/<id>.docx --accent "#RRGGBB"
+   python3 scripts/build_docx.py output/tailored/<id>.md output/docx/<id>.docx --accent "#RRGGBB" --fill-report
    python3 scripts/ats_check.py output/docx/<id>.docx output/jd/<id>.txt --title "<job title>" \
      --company "<company>" --matched "<...>" --gaps "<...>" --pages <pages from build_docx>
    ```

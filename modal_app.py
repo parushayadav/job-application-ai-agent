@@ -34,9 +34,10 @@ GWS_URL = (
 image = (
     modal.Image.debian_slim(python_version="3.12")
     # chromium renders the branded resume PDF (render_resume.py); same engine as local Chrome.
-    # libreoffice-writer counts the Word resume's pages (Liberation Serif has Times New Roman's
-    # metrics) so build_docx.py can keep it to 2 pages.
-    .apt_install("curl", "chromium", "fonts-liberation", "libreoffice-writer")
+    # libreoffice-writer counts the Word resume's pages; fonts-crosextra-carlito has Calibri's
+    # exact metrics, so the count matches Word and build_docx.py can keep it to 2 pages.
+    .apt_install("curl", "chromium", "fonts-liberation", "fonts-crosextra-carlito",
+                 "libreoffice-writer")
     .pip_install("requests", "python-dotenv", "pillow", "tzdata", "python-docx")
     .run_commands(
         f"curl -fsSL {GWS_URL} -o /tmp/gws.tar.gz",
