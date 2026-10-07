@@ -25,7 +25,7 @@ touches is in its `_working` subfolder:
 | What | Drive id |
 |---|---|
 | `_working/claude_queue.json` (jobs waiting, oldest first) | `1xfEXFq91SX_WJcK8p2w1NzzN2WlYObcq` |
-| `_working/base_resume.md` (source of truth, private, never commit it) | `1fYaEbo02JuCVbjFpYqWTn-8QcGWAQ0cJ` |
+| `_working/base_resume.md` (source of truth, private, never commit it) | `1pamiX3yct94m4wyrAWwrn46asK_bafCQ` |
 | `_working/_drafts` folder (Claude writes here) | `1VZQO5OLjyRI-5ut89iZ-CR7BSF5imPD5` |
 | `_working/_done` folder (published drafts) | `1pucha6JEJuQNeAQM76H5vkAPJMRGruq0` |
 

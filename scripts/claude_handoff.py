@@ -46,7 +46,7 @@ WORKING_FOLDER_ID = "1wWB3y5Fm-ppbSE9dFoKgEbyRGfQZdD3h"
 DRAFTS_FOLDER_ID = "1VZQO5OLjyRI-5ut89iZ-CR7BSF5imPD5"
 DONE_FOLDER_ID = "1pucha6JEJuQNeAQM76H5vkAPJMRGruq0"
 QUEUE_FILE_ID = "1xfEXFq91SX_WJcK8p2w1NzzN2WlYObcq"      # claude_queue.json
-BASE_RESUME_FILE_ID = "1fYaEbo02JuCVbjFpYqWTn-8QcGWAQ0cJ"  # base_resume.md (Claude reads it)
+BASE_RESUME_FILE_ID = "1pamiX3yct94m4wyrAWwrn46asK_bafCQ"  # base_resume.md (Claude reads it)
 
 AWAITING = "awaiting_resume.json"
 QUEUE_DESCRIPTION_CHARS = 8000   # enough to tailor against; keeps the queue file small
