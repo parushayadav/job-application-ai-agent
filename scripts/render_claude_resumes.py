@@ -83,6 +83,16 @@ def write_cells(sheet_id, row, values):
             "--json", json.dumps({"values": [[value]]}))
 
 
+def find_child(parent_id, name, folder=False):
+    """Id of the newest file (or folder) with exactly this name in parent_id, else None."""
+    kind = "=" if folder else "!="
+    q = (f"'{parent_id}' in parents and trashed = false and name = '{name.replace(chr(39), chr(92) + chr(39))}'"
+         f" and mimeType {kind} 'application/vnd.google-apps.folder'")
+    files = gws("drive", "files", "list", "--params", json.dumps({
+        "q": q, "fields": "files(id)", "orderBy": "createdTime desc", "pageSize": 1})).get("files", [])
+    return files[0]["id"] if files else None
+
+
 def job_from_meta(meta):
     """A job that already left the queue (e.g. re-tailored by hand): the draft header carries
     title, company, link, jd (one line), matched and gaps (comma separated)."""
@@ -148,8 +158,12 @@ def process(draft, sheet_id, rows, workdir):
                           company, job.get("matched_keywords", []), job.get("gap_keywords", []),
                           pages)
 
-    folder_id, _ = create_folder(folder_name, handoff.RESUMES_FOLDER_ID)
-    uploaded = upload_file(docx_path, file_name, folder_id, DOCX_MIME)
+    # Reuse a folder/file of the same name (e.g. placed by hand earlier) instead of duplicating.
+    folder_id = find_child(handoff.RESUMES_FOLDER_ID, folder_name, folder=True)
+    if not folder_id:
+        folder_id, _ = create_folder(folder_name, handoff.RESUMES_FOLDER_ID)
+    uploaded = upload_file(docx_path, file_name, folder_id, DOCX_MIME,
+                           existing_id=find_child(folder_id, file_name))
     path_label = f"Claude Resumes/{folder_name}/{file_name}".replace('"', "'")
     status = "" if ats["passed"] else "BELOW 90, review before submitting. "
     write_cells(sheet_id, row, {
