@@ -63,6 +63,8 @@ def parse(md):
             continue
         if line.startswith("# ") and not name:
             name = line[2:].strip()
+            if name.isupper():          # "CHIDVILAS PARUSHA" -> "Chidvilas Parusha" (his rule)
+                name = name.title()
         elif line.startswith("## "):
             current = (line[3:].strip(), [])
             sections.append(current)

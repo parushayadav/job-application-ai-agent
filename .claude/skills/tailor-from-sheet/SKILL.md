@@ -60,7 +60,15 @@ What may be claimed
   TensorFlow, PyTorch, GraphQL...) may be written as hands-on work in ANY role, used on demand:
   only when this job's description asks for them.
 - A job's `gap_keywords` that are NOT in the inventory (check with `scripts/check_resume.py`)
-  stay off the resume. List them in `notes:` so he can prepare.
+  stay off the resume as tool names. List them in `notes:` so he can prepare.
+- Cover every required skill: when the JD names a tool he hasn't used for something he HAS done,
+  write the capability generically instead of the tool. He has done orchestration and data
+  ingestion in every role ("Orchestration" and "Data Ingestion" are in the inventory). Examples:
+  JD wants Dagster or Prefect -> "built pipeline orchestration with dependency management and
+  retries" (plus Airflow / MWAA / Databricks Workflows / Step Functions if the JD also accepts
+  those); JD wants Fivetran or Airbyte -> "built batch and streaming data ingestion pipelines"
+  (plus ADF / Talend / Kinesis where relevant). Name a specific tool only if it is in the
+  inventory.
 - Timeline sanity: never place a tool in a role that ended before the tool existed (an
   interviewer spots it instantly). Rough first-available years: Delta Lake 2019, Unity Catalog
   2022, Delta Live Tables 2022, Delta Sharing 2021, Microsoft OneLake/Fabric 2023, Snowpark 2021,
@@ -73,7 +81,8 @@ What may be claimed
   (300%, 64.4%, 100+, 50K+, 5+, petabyte-scale...); "8+ years" stays exactly that.
 
 Content
-- Header: `# CHIDVILAS PARUSHA`, then the job's `headline` (fall back to a cleaned `title`),
+- Header: `# Chidvilas Parusha` (normal case, never all capitals; build_docx.py also enforces it),
+  then the job's `headline` (fall back to a cleaned `title`),
   then the contact line copied exactly.
 - `## Summary`: 3 to 4 sentences, about 60 to 95 words, rebuilt for this job: open with the
   headline-style title and "8+ years", then the JD's top 6 to 8 required technologies in the
@@ -154,6 +163,9 @@ version that passes the truthfulness check and explain the shortfall in the note
    - `format_issues`: fix them (usually length: trim bullets).
    `missing_you_lack` are tools he does not have: never add them. If they keep the score under
    90, stop improving, save the resume anyway, and list them in the notes.
+   Then re-run the JD match on the finished resume (the `JD MATCH` line ats_check prints): any
+   keyword listed as "missing but you have it" must be added and the check repeated. Put the
+   final `resume vs JD match` % in `notes:`.
 4. Save the draft with Drive `create_file`: title `<id> - <Company> - <Title>.md`,
    `parentId` = the `_drafts` folder, `contentMimeType: text/markdown`,
    `disableConversionToGoogleType: true`, `textContent` = this header followed by the resume:

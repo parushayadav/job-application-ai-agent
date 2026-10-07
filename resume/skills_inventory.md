@@ -108,6 +108,8 @@ LangChain, Pydantic and Apache Kafka (added or already present).
 - Performance Optimization | performance tuning, query optimization, performance and cost tuning
 - Schema Design | schema modeling
 - Cost Optimization | cost management, compute cost optimization
+- Orchestration | workflow orchestration, pipeline orchestration, data orchestration, job orchestration
+- Data Ingestion | ingestion, ingestion pipelines, data ingestion pipelines, batch and streaming ingestion
 
 ## CI/CD & DevOps
 - CI/CD

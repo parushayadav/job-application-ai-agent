@@ -187,6 +187,10 @@ def score(docx_path, jd, title, company="", matched=(), gaps=(), pages=None):
         "score": total,
         "passed": total >= TARGET,
         "hard_skills": f"{len(present)}/{len(keywords)}",
+        # Re-run of the JD match on the finished resume: share of the JD's technology keywords
+        # (everything it asks for, including tools he lacks) that the resume now contains.
+        "resume_jd_match_pct": round(100 * len(present) / len(keywords)) if keywords else 100,
+        "jd_keywords_in_resume": present,
         "missing_you_have": fixable,
         "missing_you_lack": lacking,
         "title_words_missing": [w for w in title_words if w not in title_hits],
@@ -198,7 +202,8 @@ def score(docx_path, jd, title, company="", matched=(), gaps=(), pages=None):
 
 
 def summary_line(result):
-    parts = [f"ATS {result['score']}/100", f"hard skills {result['hard_skills']}"]
+    parts = [f"ATS {result['score']}/100",
+             f"resume vs JD match {result['resume_jd_match_pct']}% ({result['hard_skills']} keywords)"]
     if result["missing_you_lack"]:
         parts.append("not claimed (you lack): " + ", ".join(result["missing_you_lack"]))
     if result["format_issues"]:
@@ -224,3 +229,6 @@ if __name__ == "__main__":
                    args.company, split_list(args.matched), split_list(args.gaps), args.pages)
     print(json.dumps(result, indent=1))
     print(("PASS " if result["passed"] else "BELOW TARGET ") + summary_line(result))
+    print(f"JD MATCH (re-run on the finished resume): {result['resume_jd_match_pct']}% | "
+          f"missing but you have it: {', '.join(result['missing_you_have']) or 'none'} | "
+          f"not claimed: {', '.join(result['missing_you_lack']) or 'none'}")
