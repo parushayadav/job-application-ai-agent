@@ -29,12 +29,24 @@ from inventory import (appears_in, build_index, inventory_prompt_block, load_inv
                        normalize, plausible_alias)
 from openrouter import DailyQuotaExceeded, chat
 from tech_lexicon import TECH_TERMS
+from filters import title_lane
 from write_sheet import get_logged, link_key, norm_text
 
 MODEL = "nvidia/nemotron-3.5-lightning:free"
 WORKERS = 4                # concurrent model calls (the request rate is capped separately)
-MATCH_CUTOFF = 50          # percent
+MATCH_CUTOFF = 50          # percent, Data Engineer titles ("data" lane, filters.title_lane)
+OTHER_LANE_CUTOFF = 60     # percent, any other engineer title (forward deployed, ML, software...)
+OTHER_LANE_MIN_CORE = 2    # ...which must also name this many core data technologies in the JD
 MIN_KEYWORDS = 3           # fewer concrete technologies than this = JD too vague to score
+
+# Core data-engineering technologies: an "other lane" posting must name at least two, so a
+# generic backend role that scores 50-60% on AWS + Kafka + PostgreSQL doesn't get a resume.
+CORE_DATA_TERMS = [
+    "Spark", "PySpark", "Databricks", "Airflow", "Kafka", "dbt", "Snowflake", "Delta Lake",
+    "Data Factory", "Synapse", "BigQuery", "Redshift", "AWS Glue", "Hadoop", "Flink", "Lakehouse",
+    "Data Warehouse", "Data Warehousing", "ETL", "ELT", "Data Pipeline", "Data Pipelines",
+    "Medallion", "Unity Catalog", "Data Lake", "Streaming",
+]
 
 # Practices nearly every posting mentions. They still go on the resume (ATS reads them), but they
 # say nothing about fit, so they're excluded from match %: on real postings, counting them made a
@@ -167,17 +179,27 @@ def score_job(job, items, inventory_block, index, api_key):
     tech_gaps = [g for g in gaps if not is_generic(g)]
     total = len(tech_matched) + len(tech_gaps)
     match_pct = round(100 * len(tech_matched) / total) if total else 0
-    qualified = total >= MIN_KEYWORDS and match_pct >= MATCH_CUTOFF
+    lane = title_lane(job["title"]) or "other"
+    cutoff = MATCH_CUTOFF if lane == "data" else OTHER_LANE_CUTOFF
+    core = [t for t in CORE_DATA_TERMS if appears_in(text, t)]
+    if total < MIN_KEYWORDS:
+        reject = f"only {total} technology keywords"
+    elif match_pct < cutoff:
+        reject = f"{match_pct}% match < {cutoff}% ({lane} lane)"
+    elif lane == "other" and len(core) < OTHER_LANE_MIN_CORE:
+        reject = (f"non Data Engineer title with {len(core)} core data technologies "
+                  f"(needs {OTHER_LANE_MIN_CORE})")
+    else:
+        reject = None
     return {
         **job,
         "title_family": str(result.get("title_family") or job["title"]).strip(),
+        "title_lane": lane,
         "match_pct": match_pct,
         "matched_keywords": matched,
         "gap_keywords": gaps,
-        "qualified": qualified,
-        "reject_reason": None if qualified else (
-            f"only {total} technology keywords" if total < MIN_KEYWORDS
-            else f"{match_pct}% match < {MATCH_CUTOFF}%"),
+        "qualified": reject is None,
+        "reject_reason": reject,
     }
 
 
@@ -264,7 +286,9 @@ if __name__ == "__main__":
         verdict = "QUALIFIED" if job["qualified"] else f"rejected ({job['reject_reason']})"
         print(f"  {job['match_pct']:>3}%  {job['company']} - {job['title']}: {verdict}")
     print(f"{len(jobs)} to score, {len(scored)} scored, {len(qualified)} qualified "
-          f"(>= {MATCH_CUTOFF}% keyword match), {len(scored) - len(qualified)} rejected, "
+          f"(Data Engineer titles >= {MATCH_CUTOFF}%, other engineer titles >= "
+          f"{OTHER_LANE_CUTOFF}% + {OTHER_LANE_MIN_CORE} core data technologies), "
+          f"{len(scored) - len(qualified)} rejected, "
           f"{errors} errors, {len(carry_over)} carried to next run")
 
     if quota_hit and not scored:

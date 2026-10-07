@@ -4,31 +4,44 @@ Applied in scrape_jobs.py, before anything is scored or tailored.
 """
 import re
 
-# --- title: Data Engineer family only -------------------------------------------------------
-# Must name a data discipline AND an engineer/developer role. "Software Engineer" alone does NOT
-# match (excluded by request) -- but "Software Engineer, Data Platform" does, since it says data.
-TITLE_INCLUDE = re.compile(
+# --- title lanes (2026-10-06) ----------------------------------------------------------------
+# "data" lane: Data Engineer family (a data word + engineer/developer/architect), qualifies at
+#   >= 50% keyword match, as before.
+# "other" lane: any other engineer/developer/architect title (forward deployed, ML/AI, platform,
+#   analytics, software...). Qualifies only at >= 60% AND when the JD names >= 2 core data
+#   technologies (score_jobs.py): a Java backend role can hit 50% on AWS + Kafka + PostgreSQL.
+DATA_TITLE = re.compile(
     r"\b(data|etl|elt|big data|databricks|spark|lakehouse|pipelines?)\b"
     r".{0,60}\b(engineer\w*|developer\w*|architect\w*)\b"
     r"|\b(engineer\w*|developer\w*)\b.{0,60}\b(data|etl|elt|big data|databricks|spark|lakehouse)\b",
     re.IGNORECASE,
 )
+ENGINEER_TITLE = re.compile(r"\b(engineer\w*|developer\w*|architect\w*)\b", re.IGNORECASE)
 TITLE_EXCLUDE = re.compile(
     r"\b(sales|pre[- ]?sales|data entry|support engineer|field|network|civil|mechanical|"
-    r"electrical|hardware|manufacturing|intern|internship|recruit\w*|teacher|instructor|"
-    r"analyst|scientist"
-    # 2026-10-06: roles that name "data" but aren't Data Engineer jobs for an 8+ year IC
-    r"|forward[- ]deployed|solutions?\s+(engineer|architect|consultant)|customer\s+engineer"
+    r"electrical|hardware|manufacturing|chemical|structural|process engineer|mining|"
+    r"intern|internship|recruit\w*|teacher|instructor|analyst|scientist"
+    r"|solutions?\s+(engineer|architect|consultant)|customer\s+engineer|sales\s+engineer"
     r"|data\s+cent(er|re)|qa|quality\s+assurance|test\s+engineer|sdet"
     r"|ai\s+trainer|trainer|tutor|annotat\w*|label(l)?ing|freelance"
     r"|manager|director|head\s+of|vice\s+president|vp"
-    r"|junior|jr|entry[- ]level|new\s+grad\w*|graduate|apprentice\w*)\b",
+    r"|junior|jr|entry[- ]level|new\s+grad\w*|grads?|graduate|apprentice\w*)\b",
     re.IGNORECASE,
 )
+# "Data Engineer at Global Investment Manager": the employer named after " at " is not the role.
+EMPLOYER_SUFFIX = re.compile(r"\s+at\s+.*$", re.IGNORECASE)
+
+
+def title_lane(title):
+    """-> "data", "other" or None (not a candidate)."""
+    role = EMPLOYER_SUFFIX.sub("", title or "")
+    if not ENGINEER_TITLE.search(role) or TITLE_EXCLUDE.search(role):
+        return None
+    return "data" if DATA_TITLE.search(role) else "other"
 
 
 def title_matches(title):
-    return bool(TITLE_INCLUDE.search(title or "")) and not TITLE_EXCLUDE.search(title or "")
+    return title_lane(title) is not None
 
 
 # --- is the posting usable at all? ----------------------------------------------------------

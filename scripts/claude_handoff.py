@@ -1,17 +1,21 @@
 """Hand-off between the Modal pipeline and Claude's resume tailoring (2026-10-06).
 
 Why a hand-off: Claude writes the resumes, but it can only move files through the Google Drive
-connector, where a ~100 KB PDF costs tens of thousands of tokens per upload. A tailored resume
-as markdown is ~9 KB of text. So:
+connector, where a binary file (Word/PDF) costs tens of thousands of tokens per upload. A
+tailored resume as markdown is ~9 KB of text. So:
 
   1. Modal (write_sheet.py) logs qualified jobs to the Sheet and lists the ones still waiting
-     for a resume in Drive `Claude Resumes/claude_queue.json` (state: awaiting_resume.json).
-  2. Claude (tailor-from-sheet skill, 5:15 / 14:15 / 21:15 ET) reads the queue and writes one
-     markdown resume per job into `Claude Resumes/_drafts`.
+     for a resume in Drive `Claude Resumes/_working/claude_queue.json` (state:
+     awaiting_resume.json).
+  2. Claude (tailor-from-sheet skill, 5:15 / 14:15 / 21:15 ET) reads the queue, writes and
+     ATS-checks one resume per job, and saves it as markdown in `_working/_drafts`.
   3. Modal (render_claude_resumes.py, :55 past those hours and at the start of every run)
-     renders each draft to the branded PDF, uploads it to `Claude Resumes`, writes the link into
-     the Sheet's "Resume Path" column and Claude's notes into "Resume Notes", then moves the draft
-     to `_done` and drops the job from the queue.
+     builds the Word file with the same code Claude checked it with (build_docx.py), scores it
+     (ats_check.py), uploads it to `Claude Resumes/<date> - <Company> - <Title>/Chidvilas
+     Parusha <Title>.docx`, fills the row's Resume Path / ATS Score / Resume Notes, moves the
+     draft to `_done` and drops the job from the queue.
+
+`Claude Resumes` itself holds only the per-job resume folders; everything else is in `_working`.
 
 Draft format: an HTML comment block, then the resume markdown.
 
@@ -19,7 +23,8 @@ Draft format: an HTML comment block, then the resume markdown.
     key: linkedin:4012345678
     accent: #005EB8
     status: ready            (or: flagged)
-    notes: coverage 92% | not claimed: Snowflake
+    ats: 93
+    notes: Fintech payments company; JD stresses Snowflake (you lack it), mention Databricks SQL
     -->
     # CHIDVILAS PARUSHA
     ...
@@ -34,8 +39,10 @@ sys.path.insert(0, str(ROOT / "scripts"))
 
 import state
 
-# Drive folder "Job Applications/Claude Resumes" and its parts (owner: parushacv@gmail.com).
+# Drive folder "Job Applications/Claude Resumes" (resumes) and its "_working" subfolder (all
+# other files below), owner parushacv@gmail.com. Ids survive moves between folders.
 RESUMES_FOLDER_ID = "1bE2FxwpPVtP1Aqkt21kJetjMvqX20EsG"
+WORKING_FOLDER_ID = "1wWB3y5Fm-ppbSE9dFoKgEbyRGfQZdD3h"
 DRAFTS_FOLDER_ID = "1VZQO5OLjyRI-5ut89iZ-CR7BSF5imPD5"
 DONE_FOLDER_ID = "1pucha6JEJuQNeAQM76H5vkAPJMRGruq0"
 QUEUE_FILE_ID = "1xfEXFq91SX_WJcK8p2w1NzzN2WlYObcq"      # claude_queue.json
@@ -89,11 +96,11 @@ def publish_queue():
     out.write_text(json.dumps({"updated": state.now_utc().isoformat(), "jobs": jobs}, indent=1),
                    encoding="utf-8")
     try:
-        upload_file(out, "claude_queue.json", RESUMES_FOLDER_ID, "application/json",
+        upload_file(out, "claude_queue.json", WORKING_FOLDER_ID, "application/json",
                     existing_id=QUEUE_FILE_ID)
     except RuntimeError:
         # The queue file was deleted by hand: create a new one (Claude finds it by name).
-        upload_file(out, "claude_queue.json", RESUMES_FOLDER_ID, "application/json")
+        upload_file(out, "claude_queue.json", WORKING_FOLDER_ID, "application/json")
     return len(jobs)
 
 

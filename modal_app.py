@@ -7,10 +7,11 @@ qualified job, WITH the full job description) -> keyword_gaps.md to Drive.
 Since 2026-10-06 this pipeline does NOT write resumes: the free-model resumes weren't good enough.
 Claude does (scripts/claude_handoff.py has the full flow):
   :00  run_pipeline     fetch, score, research, log rows + publish Drive claude_queue.json
-  :15  Claude           reads the queue, writes one tailored markdown resume per job to Drive
-                        (.claude/skills/tailor-from-sheet/SKILL.md, a Claude scheduled task)
-  :55  render_resumes   renders Claude's drafts to branded PDFs, uploads them, writes the link
-                        into the Sheet's "Resume Path" column (also runs at the start of :00)
+  :15  Claude           reads the queue, writes and ATS-checks one resume per job, saves it as
+                        a markdown draft in Drive (.claude/skills/tailor-from-sheet/SKILL.md)
+  :55  render_resumes   builds each draft as a Word file, scores it, uploads it to a dated
+                        per-job folder, fills Resume Path / ATS Score / Resume Notes in the Sheet
+                        (also runs at the start of :00)
 scripts/tailor_job.py is kept but no longer run.
 
 State that must outlive a container (seen jobs, daily fetch cap, gap counts, retry queue) lives
@@ -33,8 +34,10 @@ GWS_URL = (
 image = (
     modal.Image.debian_slim(python_version="3.12")
     # chromium renders the branded resume PDF (render_resume.py); same engine as local Chrome.
-    .apt_install("curl", "chromium", "fonts-liberation")
-    .pip_install("requests", "python-dotenv", "pillow", "tzdata")
+    # libreoffice-writer counts the Word resume's pages (Liberation Serif has Times New Roman's
+    # metrics) so build_docx.py can keep it to 2 pages.
+    .apt_install("curl", "chromium", "fonts-liberation", "libreoffice-writer")
+    .pip_install("requests", "python-dotenv", "pillow", "tzdata", "python-docx")
     .run_commands(
         f"curl -fsSL {GWS_URL} -o /tmp/gws.tar.gz",
         "tar -xzf /tmp/gws.tar.gz -C /usr/local/bin",
@@ -115,7 +118,7 @@ FUNCTION_KWARGS = dict(
         modal.Secret.from_name("gws-credentials"),
     ],
     volumes={"/state": state_volume},
-    memory=2048,          # headless Chromium (Claude resume PDFs)
+    memory=2048,          # LibreOffice page counting for the Word resumes
     max_containers=1,     # never let two runs of a function share the state Volume
 )
 
@@ -155,7 +158,7 @@ def run_pipeline():
 
 @app.function(
     **FUNCTION_KWARGS,
-    # Claude tailors at :15 past 5, 14 and 21 ET; render its drafts 40 minutes later.
+    # Claude tailors at :15 past 5, 14 and 21 ET; build its drafts 40 minutes later.
     schedule=modal.Cron("55 5,14,21 * * *", timezone="America/New_York"),
     timeout=1800,
 )
@@ -166,7 +169,7 @@ def render_resumes():
         _run("render_claude_resumes.py")
     except Exception as e:
         traceback.print_exc()
-        _send_telegram_alert(f"JOB-APPLY-AGENT — WHAT BROKE (rendering Claude resumes)\n\n{e}")
+        _send_telegram_alert(f"JOB-APPLY-AGENT — WHAT BROKE (building Claude resumes)\n\n{e}")
         raise
     finally:
         state_volume.commit()

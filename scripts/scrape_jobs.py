@@ -107,7 +107,7 @@ if __name__ == "__main__":
     # score_jobs.py rewrites this with only what it couldn't score.
     state.save("unscored_jobs.json", to_score)
     print(f"Fetched {len(fetched)} jobs: {already_seen} already seen, {reposts} reposts of jobs "
-          f"already seen, {wrong_title} not Data Engineer titles, {unusable} unusable (no link, "
+          f"already seen, {wrong_title} not engineering titles, {unusable} unusable (no link, "
           f"company or description), {clearance} need a security "
           f"clearance -> {len(to_score)} to score -> {out_path}  "
           f"({state.fetched_today()}/{state.DAILY_FETCH_CAP} fetched today)")

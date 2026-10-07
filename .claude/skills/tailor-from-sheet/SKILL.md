@@ -1,6 +1,6 @@
 ---
 name: tailor-from-sheet
-description: Claude's scheduled resume tailoring for Chidvilas Parusha. Reads the jobs waiting for a resume from Drive claude_queue.json (filled by the Modal pipeline from the Job Application Tracker Sheet), writes a tailored ATS-safe resume from the base resume for each, checks it, and saves it as a draft in Drive for Modal to render into the branded PDF and link in the Sheet. Use when asked to tailor resumes from the Sheet or queue, or when the 5:15 / 14:15 / 21:15 ET scheduled run fires.
+description: Claude's scheduled resume tailoring for Chidvilas Parusha. Reads the jobs waiting for a resume from Drive claude_queue.json (filled by the Modal pipeline from the Job Application Tracker Sheet), writes a tailored ATS-friendly resume from the base resume for each, ATS-checks the Word version (target 90+, max 10 minutes per resume), and saves it as a draft in Drive for Modal to publish as Chidvilas Parusha <Title>.docx with its path, ATS score and notes in the Sheet. Use when asked to tailor resumes from the Sheet or queue, or when the 5:15 / 14:15 / 21:15 ET scheduled run fires.
 ---
 
 # Tailor resumes from the queue (Claude path, since 2026-10-06)
@@ -9,21 +9,25 @@ How the work is split (details in `scripts/claude_handoff.py`):
 
 | When (ET) | Who | What |
 |---|---|---|
-| 5:00, 14:00, 21:00 | Modal `run_pipeline` | fetch LinkedIn Data Engineer jobs, score, log every qualified job (>= 50% match) to the Sheet with its full job description and an EMPTY Resume Path, and list the jobs waiting for a resume in Drive `claude_queue.json` |
-| 5:15, 14:15, 21:15 | **Claude (this skill)** | read the queue, write one tailored resume per job as a markdown draft in Drive `_drafts` |
-| 5:55, 14:55, 21:55 (+ start of each :00 run) | Modal `render_resumes` | render each draft to the branded PDF (<= 2 pages), upload it, write its link into the Sheet's **Resume Path** (col E) and Claude's notes into **Resume Notes** (col R), move the draft to `_done`, drop the job from the queue |
+| 5:00, 14:00, 21:00 | Modal `run_pipeline` | fetch LinkedIn jobs (Data Engineer, Data Platform Engineer, Forward Deployed Engineer, AI Engineer searches), score them, log qualified ones to the Sheet (Data Engineer titles >= 50% match; other engineer titles >= 60% and >= 2 core data technologies), and list them in Drive `claude_queue.json` with their job descriptions |
+| 5:15, 14:15, 21:15 | **Claude (this skill)** | write, check and ATS-score one resume per waiting job; save each as a markdown draft in Drive `_drafts` |
+| 5:55, 14:55, 21:55 (+ start of each :00 run) | Modal `render_resumes` | build the same Word file (`scripts/build_docx.py`), score it (`scripts/ats_check.py`), upload it as `Claude Resumes/<YYYY-MM-DD> - <Company> - <Title>/Chidvilas Parusha <Title>.docx`, and fill the job's Sheet row: **Resume Path** (clickable path), **ATS Score**, **Resume Notes** |
 
-Claude never uploads PDFs (a PDF through the Drive connector costs tens of thousands of tokens)
-and never edits the Sheet directly. Claude never applies to jobs: Chidvilas does.
+Claude never uploads Word or PDF files (binary uploads through the Drive connector cost tens of
+thousands of tokens) and never edits the Sheet directly. Claude never applies to jobs:
+Chidvilas does.
 
-## Fixed Drive locations (folder "Job Applications/Claude Resumes")
+## Fixed Drive locations
+
+`Job Applications/Claude Resumes` holds only the per-job resume folders. Everything Claude
+touches is in its `_working` subfolder:
 
 | What | Drive id |
 |---|---|
-| `claude_queue.json` (jobs waiting, oldest first) | `1xfEXFq91SX_WJcK8p2w1NzzN2WlYObcq` |
-| `base_resume.md` (source of truth, private, never commit it) | `1fYaEbo02JuCVbjFpYqWTn-8QcGWAQ0cJ` |
-| `_drafts` folder (Claude writes here) | `1VZQO5OLjyRI-5ut89iZ-CR7BSF5imPD5` |
-| `_done` folder (rendered drafts) | `1pucha6JEJuQNeAQM76H5vkAPJMRGruq0` |
+| `_working/claude_queue.json` (jobs waiting, oldest first) | `1xfEXFq91SX_WJcK8p2w1NzzN2WlYObcq` |
+| `_working/base_resume.md` (source of truth, private, never commit it) | `1fYaEbo02JuCVbjFpYqWTn-8QcGWAQ0cJ` |
+| `_working/_drafts` folder (Claude writes here) | `1VZQO5OLjyRI-5ut89iZ-CR7BSF5imPD5` |
+| `_working/_done` folder (published drafts) | `1pucha6JEJuQNeAQM76H5vkAPJMRGruq0` |
 
 If an id stops working, search Drive for the file or folder by title inside "Claude Resumes".
 
@@ -39,8 +43,9 @@ If an id stops working, search Drive for the file or folder by title inside "Cla
    repo exactly as written (remove only the markdown escaping the connector adds: `\#` -> `#`,
    `\-` -> `-`, and trailing double spaces). Check: it has `## Summary`, `## Skills`,
    `## Experience` and four `### ` role headings.
-4. `pip install --break-system-packages -r requirements.txt` if needed (only `scripts/check_resume.py`
-   is run here; no PDF rendering is needed in Claude's session).
+4. `pip install --break-system-packages -r requirements.txt` if `docx` (python-docx) is missing.
+   LibreOffice (`soffice`) is needed for the page count; if it is missing, build without the
+   count and say so in the report.
 
 ## Resume rules (agreed with Chidvilas, 2026-10-06)
 
@@ -82,29 +87,41 @@ Style and format
 - No filler: "leveraging", "spearheading", "passionate", "proven track record",
   "cutting-edge", "synergy", "results-driven". Plain, specific, active verbs.
 - Spell out an acronym once where the JD uses the long form, e.g. "Model Context Protocol (MCP)".
-- Layout is the repo's single-column template (`templates/resume_classic.html`): ATS-safe,
-  standard headings, no tables or images. Font is always Source Sans 3 (bundled). Maximum two
-  pages: the renderer tightens spacing automatically; keep the content to roughly the base
-  resume's length so it fits.
-- Accent color = the company's main brand color as `#RRGGBB` (from what you know or a quick web
-  search for "<company> brand color hex"). The renderer darkens it for readability. If unsure,
-  leave the `accent:` line out: Modal then uses the company logo's color, else navy.
+- Output is a Word file built by `scripts/build_docx.py`: Times New Roman, single column, Word's
+  own bullets, standard headings, no tables, images, text boxes, headers or footers. It steps
+  the font from 11pt down to 9.5pt until the resume fits **2 pages**; if even 9.5pt needs a third
+  page, trim the least relevant bullets.
+- Accent color (name and section headings) = the company's main brand color as `#RRGGBB` (from
+  what you know or a quick web search for "<company> brand color hex"). It is darkened for
+  readability. If unsure, leave the `accent:` line out and navy is used.
 
-## Per job
+## Per job (time box: 10 minutes)
 
-1. Write the resume to `output/tailored/<id> - <Company> - <Title>.md` following the rules above
-   (strip `< > : " / \ | ? *` from names).
-2. Check it:
+Note the start time. Spend at most **10 minutes** on one job; at the limit, save the best
+version that passes the truthfulness check and explain the shortfall in the notes.
+
+1. Save the job description to `output/jd/<id>.txt` and write the resume to
+   `output/tailored/<id>.md`, following the rules above.
+2. Truthfulness check (must print PASS; fix exactly what it lists):
    ```bash
-   python3 scripts/check_resume.py "output/tailored/<file>.md" \
+   python3 scripts/check_resume.py output/tailored/<id>.md \
      --matched "<matched_keywords, comma separated>" --gaps "<gap_keywords, comma separated>"
    ```
-   It must print PASS. Fix exactly the listed problems and re-check (at most 2 fixes). Aim for
-   keyword coverage >= 90%; when honest coverage is lower because of real gaps, that is fine,
-   say so in the notes. Never add a tool he lacks to raise the number.
-   Optional local preview: `python3 scripts/render_resume.py <md> /tmp/preview.pdf --accent "#RRGGBB"`
-   reports the page count (Chromium: `ls /opt/pw-browsers/chromium-*/chrome-linux*/chrome`).
-3. Save the draft with Drive `create_file`: title `<id> - <Company> - <Title>.md`,
+3. Build the Word file and run the ATS check on it:
+   ```bash
+   python3 scripts/build_docx.py output/tailored/<id>.md output/docx/<id>.docx --accent "#RRGGBB"
+   python3 scripts/ats_check.py output/docx/<id>.docx output/jd/<id>.txt --title "<job title>" \
+     --company "<company>" --matched "<...>" --gaps "<...>" --pages <pages from build_docx>
+   ```
+   Target **90+**. Improve only with honest changes, then rebuild and re-check (at most 3 rounds):
+   - `missing_you_have`: tools he has that the resume doesn't mention: add them (Skills, and a
+     bullet where the base resume supports it);
+   - `title_words_missing`: use the job's title words in the headline and summary;
+   - `jd_terms_missing`: use the JD's own wording where it truthfully describes his work;
+   - `format_issues`: fix them (usually length: trim bullets).
+   `missing_you_lack` are tools he does not have: never add them. If they keep the score under
+   90, stop improving, save the resume anyway, and list them in the notes.
+4. Save the draft with Drive `create_file`: title `<id> - <Company> - <Title>.md`,
    `parentId` = the `_drafts` folder, `contentMimeType: text/markdown`,
    `disableConversionToGoogleType: true`, `textContent` = this header followed by the resume:
    ```
@@ -112,16 +129,23 @@ Style and format
    key: linkedin:<id>
    accent: #RRGGBB
    status: ready
-   notes: coverage 92% | not claimed: Snowflake, Scala
+   ats: 93
+   notes: <see below>
    -->
    # CHIDVILAS PARUSHA
    ...
    ```
-4. If a job should not get a resume (the posting is not really a Data Engineer role, the
-   description is unusable, or the check keeps failing), save a draft with only the header,
+   `notes:` is ONE line (no line breaks) for Chidvilas to read before he submits: what the
+   company does and anything notable about the role; what was hard to match; tools the JD wants
+   that he lacks (so he can prepare an answer); anything he should check or change by hand
+   before submitting (e.g. "confirm the MCP bullet wording", "JD asks for on-site in Austin",
+   "requires US citizenship"). Modal adds the ATS score breakdown to it.
+5. If a job should not get a resume (not really an engineering role he fits, unusable
+   description, or the truthfulness check keeps failing), save a draft with only the header,
    `status: flagged` and the reason in `notes:`. Modal writes `FLAGGED ...` into the Sheet row.
 
 ## Finish
 
-Report in a few lines: drafts written (company, title, coverage %), jobs flagged and why, jobs
-left in the queue for the next run. The PDFs and Sheet links appear after Modal's :55 render.
+Report in a few lines: drafts written (company, title, ATS score), jobs below 90 and why, jobs
+flagged and why, jobs left in the queue for the next run. The Word files and Sheet entries
+appear after Modal's :55 run.

@@ -16,9 +16,15 @@ from .base import make_job
 ACTOR_ID = "curious_coder~linkedin-jobs-scraper"
 RUN_URL = f"https://api.apify.com/v2/acts/{ACTOR_ID}/run-sync-get-dataset-items"
 
-# (keywords, share of the per-run budget). Software Engineer was dropped by request -- the whole
-# budget goes to Data Engineer searches. Add another tuple here to search another title.
-SEARCHES = [("Data Engineer", 1.0)]
+# (keywords, share of the per-run budget). Most of the budget goes to Data Engineer; smaller
+# searches catch adjacent engineering roles (2026-10-06), which must clear the stricter
+# "other" lane in score_jobs.py (>= 60% match + >= 2 core data technologies in the JD).
+SEARCHES = [
+    ("Data Engineer", 0.55),
+    ("Data Platform Engineer", 0.15),
+    ("Forward Deployed Engineer", 0.15),
+    ("AI Engineer", 0.15),
+]
 LOCATION = "United States"
 
 JOB_ID_RE = re.compile(r"/jobs/view/(?:[^/?#]*-)?(\d+)")

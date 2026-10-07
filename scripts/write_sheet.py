@@ -1,11 +1,12 @@
-"""Log every qualified job to the "Job Application Tracker" Google Sheet, with its full job
-description, so Claude can tailor the resume afterwards (2026-10-06 change).
+"""Log every qualified job to the "Job Application Tracker" Google Sheet and queue it for
+Claude's resume (2026-10-06 change).
 
 The pipeline no longer builds resumes (the free-model resumes were not good enough). This step
 reads the qualified-job queue (STATE_DIR/pending_jobs.json, filled by score_jobs.py and enriched
-by company_research.py) and appends one row per job that isn't already logged (deduped by
-`source:id` job key). "Resume Path" is left EMPTY: Claude's scheduled tailoring run fills it in
-(see .claude/skills/tailor-from-sheet/SKILL.md), together with "Resume Notes".
+by company_research.py), appends one row per job that isn't already logged (deduped by
+`source:id` job key) with "Resume Path", "ATS Score" and "Resume Notes" EMPTY, and adds the job
+(with its description) to Drive claude_queue.json. render_claude_resumes.py fills those three
+cells once Claude has written the resume (see scripts/claude_handoff.py).
 
 Legacy input still honoured: output/tailored_jobs.json and unlogged_jobs.json, in case an older
 build of tailor_job.py produced resumes that were never logged.
@@ -26,22 +27,48 @@ load_dotenv(ENV_PATH)
 sys.path.insert(0, str(ROOT / "scripts"))
 from gws_cli import gws
 
-# Columns A-H predate v2 and keep their positions so existing rows stay aligned; v2 renamed
-# "Fit Score" (1-10) to "Match %" -- rows logged before 2026-10-05 hold the old 8-10 scores.
-HEADERS = ["Job Title", "Company", "Job Link", "Match %", "Resume Path", "Status", "Timestamp",
-           "Company Notes", "Matched Keywords", "Keyword Gaps", "Source", "Fingerprint",
-           # M-R added 2026-10-06 for Claude tailoring. Resume Path (E) and Resume Notes (R) are
-           # written by Claude, never by this script.
-           "Job Description", "Headline", "Company Logo", "Location", "Posted Date",
-           "Resume Notes"]
-HEADER_RANGE = "Sheet1!A1:R1"
+# Columns A-E predate v2 and keep their positions. v2 renamed "Fit Score" (1-10) to "Match %" --
+# rows logged before 2026-10-05 hold the old 8-10 scores. 2026-10-06: "ATS Score" inserted at F
+# (right after Resume Path; migrate_layout() shifts existing rows once) and "Resume Notes" added
+# at the end. Resume Path, ATS Score and Resume Notes are written by render_claude_resumes.py.
+HEADERS = ["Job Title", "Company", "Job Link", "Match %", "Resume Path", "ATS Score", "Status",
+           "Timestamp", "Company Notes", "Matched Keywords", "Keyword Gaps", "Source",
+           "Fingerprint", "Resume Notes"]
+HEADER_RANGE = "Sheet1!A1:N1"
+COL = {name: chr(ord("A") + i) for i, name in enumerate(HEADERS)}   # header -> column letter
+FINGERPRINT_IDX = HEADERS.index("Fingerprint")
 MAX_CELL_CHARS = 45000   # Google Sheets rejects cells over 50,000 characters
 SHEET_TITLE = "Job Application Tracker"
 STATUS_OPTIONS = ["Not Applied", "Applied", "Interviewing", "Offer", "Rejected"]
 
 
+def sheet1_numeric_id(sheet_id):
+    meta = gws("sheets", "spreadsheets", "get", "--params",
+               json.dumps({"spreadsheetId": sheet_id, "fields": "sheets.properties"}))
+    for sheet in meta.get("sheets", []):
+        if sheet["properties"].get("title") == "Sheet1":
+            return sheet["properties"]["sheetId"]
+    return 0
+
+
+def migrate_layout(sheet_id):
+    """One-time: the v2 layout had Status in F. Insert the ATS Score column there so every
+    existing row shifts right with its data intact."""
+    row1 = gws("sheets", "+read", "--spreadsheet", sheet_id, "--range", "Sheet1!A1:Z1")
+    header = (row1.get("values") or [[]])[0]
+    if len(header) > 5 and header[5] == "Status":
+        gws("sheets", "spreadsheets", "batchUpdate", "--params",
+            json.dumps({"spreadsheetId": sheet_id}),
+            "--json", json.dumps({"requests": [{"insertDimension": {
+                "range": {"sheetId": sheet1_numeric_id(sheet_id), "dimension": "COLUMNS",
+                          "startIndex": 5, "endIndex": 6},
+                "inheritFromBefore": False}}]}))
+        print("Sheet migrated: inserted 'ATS Score' column after 'Resume Path'")
+
+
 def write_headers(sheet_id):
-    """Idempotent: also upgrades a v1 sheet's header row to the v2 columns."""
+    """Idempotent: migrates older layouts, then (re)writes the header row."""
+    migrate_layout(sheet_id)
     gws("sheets", "spreadsheets", "values", "update", "--params",
         json.dumps({"spreadsheetId": sheet_id, "range": HEADER_RANGE, "valueInputOption": "USER_ENTERED"}),
         "--json", json.dumps({"values": [HEADERS]}))
@@ -65,7 +92,7 @@ def get_or_create_sheet_id():
             "setDataValidation": {
                 "range": {
                     "sheetId": 0, "startRowIndex": 1, "endRowIndex": 1000,
-                    "startColumnIndex": 5, "endColumnIndex": 6,
+                    "startColumnIndex": 6, "endColumnIndex": 7,   # Status (G)
                 },
                 "rule": {
                     "condition": {
@@ -110,12 +137,16 @@ def get_logged(sheet_id):
     a new id = a repost). Rows logged before the Fingerprint column existed have no fingerprint,
     so only those fall back to the coarse company+title match; a company's two different openings
     with the same title are therefore never merged once they have fingerprints."""
-    result = gws("sheets", "+read", "--spreadsheet", sheet_id, "--range", "Sheet1!A:L")
+    result = gws("sheets", "+read", "--spreadsheet", sheet_id, "--range", "Sheet1!A:N")
+    rows = result.get("values", [])
+    # Before migration (first run of this version) the fingerprint is one column further left.
+    fp_idx = FINGERPRINT_IDX if rows and len(rows[0]) > 5 and rows[0][5] == "ATS Score" \
+        else FINGERPRINT_IDX - 1
     keys, fingerprints, legacy_titles = set(), set(), set()
-    for row in result.get("values", [])[1:]:
+    for row in rows[1:]:
         if len(row) > 2:
             keys.add(link_key(row[2]))
-        fp = row[11].strip() if len(row) > 11 else ""
+        fp = row[fp_idx].strip() if len(row) > fp_idx else ""
         if fp:
             fingerprints.add(fp)
         elif len(row) > 1:
@@ -176,19 +207,15 @@ if __name__ == "__main__":
         new_rows.append([
             cell(job["title"]), cell(job["company"]), canonical_link(job),
             f"{job['match_pct']}%",
-            job.get("resume_link") or "",          # Resume Path: Claude fills this in
+            job.get("resume_link") or "",          # Resume Path: filled after Claude's resume
+            "",                                    # ATS Score: same
             "Not Applied", logged_at,
             cell(job.get("company_notes", "")),
             cell(", ".join(m["keyword"] for m in job.get("matched_keywords", []))),
             cell(", ".join(job.get("gap_keywords", []))),
             job.get("source", ""),
             job.get("fingerprint", ""),
-            cell(job.get("description", "")),
-            cell(job.get("title_family") or job["title"]),
-            job.get("company_logo") or "",
-            cell(job.get("location", "")),
-            cell(job.get("posted_date", "")),
-            "",                                    # Resume Notes: Claude fills this in
+            "",                                    # Resume Notes: same
         ])
 
     if new_rows:

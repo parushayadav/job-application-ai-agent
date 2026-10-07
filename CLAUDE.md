@@ -11,21 +11,31 @@ log) is implemented in `scripts/`, gated by `.claude/hooks/resume_hook.py` and
 names) are the source of truth for scope and hard rules — read both before changing pipeline
 behavior. Treat their hard rules as binding, not suggestions to redesign.
 
-## Change 2026-10-06: Claude writes the resumes
+## Change 2026-10-06: Claude writes the resumes (Word, ATS-checked)
 
 The free-model resumes were not good enough, so the Modal pipeline no longer writes resumes
 (`tailor_job.py` is kept but not run). Flow, all in `scripts/claude_handoff.py`:
-`run_pipeline` (5:00/14:00/21:00 ET) logs qualified jobs WITH the job description to the Sheet
-(Resume Path empty) and publishes Drive `Claude Resumes/claude_queue.json` -> a Claude scheduled
-task (5:15/14:15/21:15 ET) follows `.claude/skills/tailor-from-sheet/SKILL.md`, writing one
-markdown draft per job to Drive `_drafts` -> `render_resumes` (5:55/14:55/21:55 ET, and at the
-start of every run) renders the PDFs with `render_resume.py`, uploads them, and writes the link
-into Resume Path (col E) and notes into Resume Notes (col R). Claude may reword bullets (facts,
-tools and numbers unchanged, checked by `scripts/check_resume.py`); the font is always Source Sans
-3 and the accent is the company's brand color. Sheet columns M-R (Job Description, Headline,
-Company Logo, Location, Posted Date, Resume Notes) were added for this. Title filter also drops
-forward deployed, solutions, data center, QA, trainer/annotation, manager/director and junior
-titles; postings without a job link, company or a 400+ character description are dropped.
+`run_pipeline` (5:00/14:00/21:00 ET) logs qualified jobs to the Sheet and lists them, with their
+job descriptions, in Drive `Claude Resumes/_working/claude_queue.json` -> a Claude scheduled task
+(5:15/14:15/21:15 ET) follows `.claude/skills/tailor-from-sheet/SKILL.md`: writes each resume,
+checks truthfulness (`check_resume.py`), builds the Word file (`build_docx.py`: Times New Roman,
+company color, <= 2 pages via LibreOffice page count) and ATS-scores it (`ats_check.py`, target
+90, at most 10 minutes per resume), then saves a markdown draft to `_working/_drafts` ->
+`render_resumes` (5:55/14:55/21:55 ET, and at the start of every run) rebuilds the same Word file,
+scores it, uploads `Claude Resumes/<YYYY-MM-DD> - <Company> - <Title>/Chidvilas Parusha
+<Title>.docx`, and fills the row's Resume Path (clickable path), ATS Score and Resume Notes.
+
+Sheet columns (A-N): Job Title, Company, Job Link, Match %, Resume Path, ATS Score, Status,
+Timestamp, Company Notes, Matched Keywords, Keyword Gaps, Source, Fingerprint, Resume Notes.
+`write_sheet.migrate_layout()` inserted ATS Score at F once (older rows shift right intact).
+
+Searches: "Data Engineer" (55% of the fetch budget), "Data Platform Engineer", "Forward Deployed
+Engineer", "AI Engineer" (15% each). Two lanes (`filters.title_lane`): Data Engineer titles
+qualify at >= 50% keyword match; any other engineer/developer/architect title needs >= 60% AND
+>= 2 core data technologies in the JD (`score_jobs.CORE_DATA_TERMS`). Excluded titles: sales,
+solutions, support, field, mechanical/civil/electrical/hardware/network, data center, QA,
+trainer/annotation, manager/director/head of, junior/intern/grads (employer names after " at "
+are ignored). Postings without a job link, company or a 400+ character description are dropped.
 
 ## What This Builds
 
@@ -51,8 +61,8 @@ python3 scripts/scrape_jobs.py        # -> output/raw_jobs.json (window since la
 python3 scripts/score_jobs.py         # -> output/scored_jobs.json, updates keyword gaps + seen jobs
 python3 scripts/company_research.py   # adds company_notes/company_focus to scored_jobs.json
 # python3 scripts/tailor_job.py       # DISABLED 2026-10-06 (Claude tailors instead)
-python3 scripts/write_sheet.py        # -> Google Sheet (+ job description) + Drive claude_queue.json
-python3 scripts/render_claude_resumes.py  # Claude's Drive drafts -> PDFs -> Resume Path column
+python3 scripts/write_sheet.py        # -> Google Sheet + Drive claude_queue.json (job descriptions)
+python3 scripts/render_claude_resumes.py  # Claude's drafts -> Word files -> Resume Path / ATS Score
 python3 scripts/keyword_gaps.py       # mirror keyword_gaps.md to Drive
 ```
 
@@ -198,8 +208,8 @@ job-application-ai-agent/
 ## Sheet
 
 "Job Application Tracker" (id in `.env` as `google_sheet_id`, also in the Modal secret).
-Columns: Job Title, Company, Job Link, Match %, Resume Path, Status, Timestamp (ET), Company Notes,
-Matched Keywords, Keyword Gaps, Source, Fingerprint. Rows logged before 2026-10-05 hold v1 1-10 scores in
+Columns: Job Title, Company, Job Link, Match %, Resume Path, ATS Score, Status, Timestamp (ET),
+Company Notes, Matched Keywords, Keyword Gaps, Source, Fingerprint, Resume Notes. Rows logged before 2026-10-05 hold v1 1-10 scores in
 "Match %". Dedup keys off `source:id` (LinkedIn: the numeric job id, never the URL — LinkedIn
 stamps per-scrape tracking params into every link).
 
