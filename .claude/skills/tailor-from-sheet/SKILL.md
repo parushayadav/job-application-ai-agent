@@ -82,6 +82,17 @@ Content
   Skills line order to put JD keywords first). Trim the least relevant bullets if needed to fit
   two pages: about 8 to 10 for HCL and Nomura, 4 to 6 for Cleveland State, 3 to 5 for Yana.
 
+Company facts
+- `company_notes` and `company_focus` come from a free model WITHOUT web access and can describe
+  the wrong company with the same name (live example: "Bitwise", an IT services firm hiring a
+  Databricks lead in Richmond, VA, was described as a crypto exchange). Before using them, check
+  they agree with the job description. If they conflict or the JD doesn't say what the company
+  does, take the company's business from the JD (or a quick web search), or end the summary
+  with a neutral line about the role instead, and mention the mismatch in `notes:`.
+- Recruiter or staffing postings (the company name is an agency and the JD describes a
+  "confidential" client): write the closing sentence about the client's industry from the JD,
+  never about the agency.
+
 Style and format
 - No em dashes or en dashes anywhere (use commas, colons, periods or a plain hyphen).
 - No filler: "leveraging", "spearheading", "passionate", "proven track record",
