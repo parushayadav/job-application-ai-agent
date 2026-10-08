@@ -12,7 +12,7 @@ tailored resume as markdown is ~9 KB of text. So:
   3. Modal (render_claude_resumes.py, :55 past those hours and at the start of every run)
      builds the Word file with the same code Claude checked it with (build_docx.py), scores it
      (ats_check.py), uploads it to `Claude Resumes/<date> - <Company> - <Title>/Chidvilas
-     Parusha <Title>.docx`, fills the row's Resume Path / ATS Score / Resume Notes, moves the
+     Parusha <Title> Resume.docx`, fills the row's Resume Path / ATS Score / Resume Notes, moves the
      draft to `_done` and drops the job from the queue.
 
 `Claude Resumes` itself holds only the per-job resume folders; everything else is in `_working`.

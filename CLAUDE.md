@@ -23,7 +23,7 @@ company color, <= 2 pages via LibreOffice page count) and ATS-scores it (`ats_ch
 90, at most 10 minutes per resume), then saves a markdown draft to `_working/_drafts` ->
 `render_resumes` (5:55/14:55/21:55 ET, and at the start of every run) rebuilds the same Word file,
 scores it, uploads `Claude Resumes/<YYYY-MM-DD> - <Company> - <Title>/Chidvilas Parusha
-<Title>.docx`, and fills the row's Resume Path (clickable path), ATS Score and Resume Notes.
+<Title> Resume.docx`, and fills the row's Resume Path (clickable path), ATS Score and Resume Notes.
 
 Rule 2026-10-07: every queued job gets a resume. A required tool he lacks (e.g. Palantir
 Foundry) is never a reason to skip: Claude builds around his closest tools and lists the missing

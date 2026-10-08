@@ -6,7 +6,7 @@ See claude_handoff.py for the whole flow. For every markdown draft in Drive
   2. status "flagged" or no resume body: use the base resume (job title as headline), so no
      row is left without a resume; then check the structure (validate_resume.validate), build the Word file
      (build_docx.py: Calibri, company color, <= 2 pages) and score it (ats_check.py);
-  3. upload it to `Claude Resumes/<YYYY-MM-DD> - <Company> - <Title>/Chidvilas Parusha <Title>.docx`
+  3. upload it to `Claude Resumes/<YYYY-MM-DD> - <Company> - <Title>/Chidvilas Parusha <Title> Resume.docx`
      and fill the job's row: Resume Path (clickable path to the file), ATS Score, Resume Notes;
   4. move the draft to `_done` and drop the job from claude_queue.json.
 A draft that fails stays in `_drafts` and is retried next time (its error goes to the log).
@@ -147,11 +147,11 @@ def process(draft, sheet_id, rows, workdir):
     title = safe_name(job.get("headline") or job.get("title") or meta.get("title")
                       or "Data Engineer", 60)
     company = safe_name(job.get("company") or meta.get("company") or "Company", 50)
-    file_name = f"{CANDIDATE} {title}.docx"
+    doc_title = f"{CANDIDATE} {title} Resume"     # Word title property and file name
+    file_name = f"{doc_title}.docx"
     folder_name = f"{now:%Y-%m-%d} - {company} - {title}"
     docx_path = Path(workdir) / file_name
-    accent, pages, size = build_fitted(resume, docx_path, meta.get("accent"),
-                                       f"{CANDIDATE} {title}")
+    accent, pages, size = build_fitted(resume, docx_path, meta.get("accent"), doc_title)
     if pages is not None and pages > 2:
         raise ValueError(f"resume is {pages} pages even at the smallest layout")
     ats = ats_check.score(docx_path, job.get("description", ""), job.get("title") or title,
