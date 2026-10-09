@@ -38,7 +38,7 @@ image = (
     # exact metrics, so the count matches Word and build_docx.py can keep it to 2 pages.
     .apt_install("curl", "chromium", "fonts-liberation", "fonts-crosextra-carlito",
                  "libreoffice-writer")
-    .pip_install("requests", "python-dotenv", "pillow", "tzdata", "python-docx")
+    .pip_install("requests", "python-dotenv", "pillow", "tzdata", "python-docx", "pypdf")
     .run_commands(
         f"curl -fsSL {GWS_URL} -o /tmp/gws.tar.gz",
         "tar -xzf /tmp/gws.tar.gz -C /usr/local/bin",

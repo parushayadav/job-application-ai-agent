@@ -10,9 +10,15 @@ Input is the same markdown every resume path uses (# name, headline, contact lin
   dates bold; everything else black.
 - ATS-safe structure: one column, real paragraphs, Word's own bullet list style, no tables,
   text boxes, images, headers or footers; contact details in the body; standard headings.
-- At most 2 pages: tries progressively smaller font sizes / margins and keeps the first layout
-  LibreOffice paginates to <= 2 pages. Carlito (fonts-crosextra-carlito) has Calibri's exact
-  metrics, and every line has an exact height, so the count matches Word.
+- At most 2 pages, with page 2 well used (2026-10-08): tries progressively smaller font sizes /
+  margins and keeps the roomiest layout that LibreOffice paginates to <= 2 pages with page 2 at
+  most PAGE2_MAX full. That headroom absorbs small Word/LibreOffice layout differences (Word once
+  showed a 3rd page). If page 2 is then under PAGE2_MIN full, spacing between bullets, roles and
+  sections is stretched evenly until it is. Carlito (fonts-crosextra-carlito) has Calibri's exact
+  metrics, every line has an exact height, and widow/orphan control is off (Word would otherwise
+  move lines to the next page), so Word and LibreOffice lay out the same lines.
+- to_pdf() makes the PDF that is delivered next to the Word file; it is the same LibreOffice
+  layout that was measured, so it is always <= 2 pages.
 - line_fill() reports bullets whose last line is mostly empty, so the wording can be adjusted to
   fill lines instead of wasting them (--fill-report on the command line).
 """
@@ -38,6 +44,9 @@ FONT = "Calibri"
 MAX_PAGES = 2
 # (body pt, margin inches) from roomiest to tightest
 LAYOUTS = [(11, 0.75), (11, 0.6), (10.5, 0.6), (10.5, 0.5), (10, 0.5), (9.5, 0.5)]
+PAGE2_MAX = 0.93          # leave room on page 2 so Word never spills onto a 3rd page
+PAGE2_MIN = 0.85          # below this, stretch spacing so page 2 does not end half empty
+MAX_EXTRA_PT = 4.0        # most extra space added per bullet when stretching (pt)
 BULLET_INDENT_IN = 0.25   # Word's "List Bullet" text indent in this template
 # Carlito has Calibri's exact metrics: used by LibreOffice for the page count and by
 # line_fill() to measure where each bullet's text wraps.
@@ -115,7 +124,9 @@ def _bottom_border(paragraph, hex_color):
     p_pr.append(borders)
 
 
-def build(md_text, out_path, accent=None, title="Resume", body_pt=11, margin_in=0.75):
+def build(md_text, out_path, accent=None, title="Resume", body_pt=11, margin_in=0.75, extra=0.0):
+    """extra: points of additional space after each bullet (twice that before roles and
+    section headings), used to fill page 2 evenly."""
     md_text = clean_dashes(md_text)
     color, hex_color = readable_accent(accent)
     name, header, sections = parse(md_text)
@@ -145,7 +156,7 @@ def build(md_text, out_path, accent=None, title="Resume", body_pt=11, margin_in=
 
     for title_text, lines in sections:
         h = doc.add_paragraph()
-        _spacing(h, before=7, after=3, size=body_pt + 1)
+        _spacing(h, before=7 + 2 * extra, after=3, size=body_pt + 1)
         h.paragraph_format.keep_with_next = True
         _add_runs(h, title_text.upper(), body_pt + 1, color=color, bold=True)
         _bottom_border(h, hex_color)
@@ -155,7 +166,7 @@ def build(md_text, out_path, accent=None, title="Resume", body_pt=11, margin_in=
         for line in lines:
             if line.startswith("### "):
                 role_par = doc.add_paragraph()
-                _spacing(role_par, before=5, size=body_pt)
+                _spacing(role_par, before=5 + 2 * extra, size=body_pt)
                 role_par.paragraph_format.keep_with_next = True
                 _add_runs(role_par, line[4:], body_pt, bold=True)
                 expect_date = True
@@ -170,13 +181,13 @@ def build(md_text, out_path, accent=None, title="Resume", body_pt=11, margin_in=
                 text = line[2:]
                 if is_skills and ":" in text:
                     p = doc.add_paragraph()
-                    _spacing(p, after=1, size=body_pt)
+                    _spacing(p, after=1 + extra / 2, size=body_pt)
                     label, _, rest = text.partition(":")
                     _set_font(p.add_run(label.strip() + ": "), body_pt, bold=True)
                     _add_runs(p, rest.strip(), body_pt)
                 else:
                     p = doc.add_paragraph(style="List Bullet")
-                    _spacing(p, after=1, size=body_pt)
+                    _spacing(p, after=1 + extra, size=body_pt)
                     _add_runs(p, text, body_pt)
             elif in_roles and line.lower().startswith("skills:"):
                 p = doc.add_paragraph()
@@ -190,6 +201,8 @@ def build(md_text, out_path, accent=None, title="Resume", body_pt=11, margin_in=
                     p.paragraph_format.keep_with_next = True
                 _add_runs(p, line, body_pt, italic=in_roles)
                 expect_date = False
+    for paragraph in doc.paragraphs:
+        paragraph.paragraph_format.widow_control = False
     out_path = Path(out_path)
     out_path.parent.mkdir(parents=True, exist_ok=True)
     doc.save(out_path)
@@ -217,13 +230,36 @@ def to_pdf(docx_path, out_dir):
     return pdf if pdf.exists() else None
 
 
-def count_pages(docx_path):
-    """Pages as LibreOffice lays the document out (None if LibreOffice isn't installed)."""
+def pdf_layout(pdf_path, margin_in):
+    """-> (pages, fill of the last page 0..1): how far down the usable area the last text sits."""
+    from pypdf import PdfReader
+    reader = PdfReader(str(pdf_path))
+    last = reader.pages[-1]
+    height = float(last.mediabox.height)
+    ys = []
+
+    def visit(text, cm, tm, *_):
+        if text.strip():
+            ys.append(tm[5] * cm[3] + cm[5] if cm else tm[5])
+
+    last.extract_text(visitor_text=visit)
+    top, bottom = height - margin_in * 72, margin_in * 72
+    fill = (top - min(ys)) / (top - bottom) if ys else 0.0
+    return len(reader.pages), max(0.0, min(1.0, fill))
+
+
+def measure(docx_path, margin_in):
+    """-> (pages, last-page fill) as LibreOffice lays the document out, or (None, None)."""
     with tempfile.TemporaryDirectory() as tmp:
         pdf = to_pdf(docx_path, tmp)
         if not pdf:
-            return None
-        return len(re.findall(rb"/Type\s*/Page(?![s\w])", pdf.read_bytes()))
+            return None, None
+        return pdf_layout(pdf, margin_in)
+
+
+def count_pages(docx_path):
+    """Pages as LibreOffice lays the document out (None if LibreOffice isn't installed)."""
+    return measure(docx_path, 0.5)[0]
 
 
 def _carlito():
@@ -274,15 +310,35 @@ def line_fill(md_text, body_pt, margin_in):
 
 
 def build_fitted(md_text, out_path, accent=None, title="Resume"):
-    """Build with the roomiest layout that fits MAX_PAGES. -> (accent hex, pages, body pt)."""
-    pages = hex_color = body_pt = margin = None
+    """Roomiest layout that fits MAX_PAGES with page 2 at most PAGE2_MAX full, then stretch
+    spacing until page 2 is at least PAGE2_MIN full. -> (accent hex, pages, body pt).
+    build_fitted.last_layout = (body pt, margin in, extra pt); .last_fill = page-2 fill."""
+    pages = fill = hex_color = body_pt = margin = None
     for body_pt, margin in LAYOUTS:
         hex_color = build(md_text, out_path, accent, title, body_pt, margin)
-        pages = count_pages(out_path)
-        if pages is None or pages <= MAX_PAGES:
+        pages, fill = measure(out_path, margin)
+        if pages is None:                       # no LibreOffice: cannot measure, keep roomiest
             break
-    build_fitted.last_layout = (body_pt, margin)
+        if pages < MAX_PAGES or (pages == MAX_PAGES and fill <= PAGE2_MAX):
+            break
+    extra = 0.0
+    if pages == MAX_PAGES and fill is not None and fill < PAGE2_MIN:
+        step = 0.5
+        while extra + step <= MAX_EXTRA_PT:
+            build(md_text, out_path, accent, title, body_pt, margin, extra + step)
+            trial_pages, trial_fill = measure(out_path, margin)
+            if trial_pages != MAX_PAGES or trial_fill > PAGE2_MAX:
+                break                            # one step too far: keep the previous spacing
+            extra, fill = extra + step, trial_fill
+            if fill >= PAGE2_MIN:
+                break
+        build(md_text, out_path, accent, title, body_pt, margin, extra)
+    build_fitted.last_layout = (body_pt, margin, extra)
+    build_fitted.last_fill = fill
     return hex_color, pages, body_pt
+
+
+build_fitted.last_layout, build_fitted.last_fill = None, None
 
 
 if __name__ == "__main__":
@@ -291,15 +347,21 @@ if __name__ == "__main__":
     parser.add_argument("docx")
     parser.add_argument("--accent")
     parser.add_argument("--title", default="Resume")
+    parser.add_argument("--pdf", action="store_true", help="also write the PDF next to the docx")
     parser.add_argument("--fill-report", action="store_true",
                         help="list bullets whose last line is under 70%% full")
     args = parser.parse_args()
     md = Path(args.markdown).read_text(encoding="utf-8")
     hex_color, pages, size = build_fitted(md, args.docx, args.accent, args.title)
+    fill = build_fitted.last_fill
     print(f"Built {args.docx} ({pages if pages is not None else '?'} pages, {size}pt "
-          f"{FONT}, accent {hex_color})")
+          f"{FONT}, accent {hex_color}, page {pages} {round(fill * 100) if fill is not None else '?'}% "
+          f"full, extra spacing {build_fitted.last_layout[2]}pt)")
+    if args.pdf:
+        pdf = to_pdf(args.docx, Path(args.docx).parent)
+        print(f"PDF: {pdf}")
     if args.fill_report:
-        body_pt, margin = build_fitted.last_layout
+        body_pt, margin, _ = build_fitted.last_layout
         weak = [(r, t, n, f) for r, t, n, f in line_fill(md, body_pt, margin) if f < 0.7]
         if not weak:
             print("Line fill: every bullet's last line is at least 70% full")

@@ -3,3 +3,4 @@ python-dotenv==1.2.2
 pillow==12.3.0
 tzdata
 python-docx
+pypdf
