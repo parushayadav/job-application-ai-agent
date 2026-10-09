@@ -6,8 +6,10 @@ See claude_handoff.py for the whole flow. For every markdown draft in Drive
   2. status "flagged" or no resume body: use the base resume (job title as headline), so no
      row is left without a resume; then check the structure (validate_resume.validate), build the Word file
      (build_docx.py: Calibri, company color, <= 2 pages) and score it (ats_check.py);
-  3. upload it to `Claude Resumes/<YYYY-MM-DD> - <Company> - <Title>/Chidvilas Parusha <Title> Resume.docx`
-     and fill the job's row: Resume Path (clickable path to the file), ATS Score, Resume Notes;
+  3. save it as a PDF too (same LibreOffice layout, so <= 2 pages), upload both to
+     `Claude Resumes/<YYYY-MM-DD>/<Company> - <Title>/Chidvilas Parusha Resume.docx|.pdf`
+     and fill the job's row: Resume Path (clickable link to the Word file), ATS Score,
+     Resume Notes;
   4. move the draft to `_done` and drop the job from claude_queue.json.
 A draft that fails stays in `_drafts` and is retried next time (its error goes to the log).
 
@@ -30,13 +32,15 @@ sys.path.insert(0, str(ROOT / "scripts"))
 
 import ats_check
 import claude_handoff as handoff
-from build_docx import build_fitted
+from build_docx import build_fitted, to_pdf
 from gws_cli import create_folder, gws, upload_file
 from text_rules import clean_dashes
 from validate_resume import validate
 from write_sheet import COL, get_or_create_sheet_id, link_key
 
 DOCX_MIME = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+PDF_MIME = "application/pdf"
+RESUME_NAME = "Chidvilas Parusha Resume"   # file names (.docx and .pdf) and Word title
 CANDIDATE = "Chidvilas Parusha"
 EASTERN = ZoneInfo("America/New_York")
 
@@ -93,6 +97,32 @@ def find_child(parent_id, name, folder=False):
     return files[0]["id"] if files else None
 
 
+def job_folder(parent_id, name, key):
+    """The job's folder under the date folder: "<Company> - <Title>", tagged with the job key in
+    its Drive description. Re-rendering a job reuses its folder; a different job with the same
+    company and title that day gets "<Company> - <Title> (2)", so nothing is overwritten.
+    -> (folder id, folder name)."""
+    result = gws("drive", "files", "list", "--params", json.dumps({
+        "q": f"'{parent_id}' in parents and trashed = false and "
+             f"mimeType = 'application/vnd.google-apps.folder'",
+        "fields": "files(id,name,description)", "pageSize": 1000}))
+    taken = {}
+    for f in result.get("files", []):
+        taken[f["name"]] = f
+    for candidate in [name] + [f"{name} ({n})" for n in range(2, 50)]:
+        existing = taken.get(candidate)
+        if existing and (existing.get("description") or "") == key:
+            return existing["id"], candidate
+        if not existing:
+            folder = gws("drive", "files", "create", "--params", json.dumps({"fields": "id"}),
+                         "--json", json.dumps({
+                             "name": candidate, "description": key,
+                             "mimeType": "application/vnd.google-apps.folder",
+                             "parents": [parent_id]}))
+            return folder["id"], candidate
+    raise RuntimeError(f"too many folders named {name!r}")
+
+
 def job_from_meta(meta):
     """A job that already left the queue (e.g. re-tailored by hand): the draft header carries
     title, company, link, jd (one line), matched and gaps (comma separated)."""
@@ -147,30 +177,38 @@ def process(draft, sheet_id, rows, workdir):
     title = safe_name(job.get("headline") or job.get("title") or meta.get("title")
                       or "Data Engineer", 60)
     company = safe_name(job.get("company") or meta.get("company") or "Company", 50)
-    doc_title = f"{CANDIDATE} {title} Resume"     # Word title property and file name
-    file_name = f"{doc_title}.docx"
-    folder_name = f"{now:%Y-%m-%d} - {company} - {title}"
-    docx_path = Path(workdir) / file_name
-    accent, pages, size = build_fitted(resume, docx_path, meta.get("accent"), doc_title)
+    # Layout (Chidvilas, 2026-10-08): Claude Resumes/<YYYY-MM-DD>/<Company> - <Title>/
+    # with "Chidvilas Parusha Resume.docx" and the same resume as "Chidvilas Parusha Resume.pdf".
+    date_name = f"{now:%Y-%m-%d}"
+    job_folder_name = f"{company} - {title}"
+    docx_path = Path(workdir) / f"{RESUME_NAME}.docx"
+    accent, pages, size = build_fitted(resume, docx_path, meta.get("accent"), RESUME_NAME)
+    fill = build_fitted.last_fill
     if pages is not None and pages > 2:
         raise ValueError(f"resume is {pages} pages even at the smallest layout")
+    pdf_path = to_pdf(docx_path, workdir)
+    if not pdf_path:
+        raise RuntimeError("PDF conversion failed (LibreOffice)")
     ats = ats_check.score(docx_path, job.get("description", ""), job.get("title") or title,
                           company, job.get("matched_keywords", []), job.get("gap_keywords", []),
                           pages)
 
-    # Reuse a folder/file of the same name (e.g. placed by hand earlier) instead of duplicating.
-    folder_id = find_child(handoff.RESUMES_FOLDER_ID, folder_name, folder=True)
-    if not folder_id:
-        folder_id, _ = create_folder(folder_name, handoff.RESUMES_FOLDER_ID)
-    uploaded = upload_file(docx_path, file_name, folder_id, DOCX_MIME,
-                           existing_id=find_child(folder_id, file_name))
-    path_label = f"Claude Resumes/{folder_name}/{file_name}".replace('"', "'")
+    date_id = find_child(handoff.RESUMES_FOLDER_ID, date_name, folder=True) \
+        or create_folder(date_name, handoff.RESUMES_FOLDER_ID)[0]
+    folder_id, job_folder_name = job_folder(date_id, job_folder_name, key)
+    uploaded = upload_file(docx_path, docx_path.name, folder_id, DOCX_MIME,
+                           existing_id=find_child(folder_id, docx_path.name))
+    upload_file(pdf_path, pdf_path.name, folder_id, PDF_MIME,
+                existing_id=find_child(folder_id, pdf_path.name))
+    path_label = (f"Claude Resumes/{date_name}/{job_folder_name}/{docx_path.name}"
+                  .replace('"', "'"))
     status = "" if ats["passed"] else "BELOW 90, review before submitting. "
     write_cells(sheet_id, row, {
         "Resume Path": f'=HYPERLINK("{uploaded["webViewLink"]}", "{path_label}")',
         "ATS Score": ats["score"],
         "Resume Notes": notes_text(f"{status}{notes} | {ats_check.summary_line(ats)} | "
-                                   f"{pages or '?'} pages, {size}pt, accent {accent}"),
+                                   f"{pages or '?'} pages (page 2 {round(fill * 100) if fill else '?'}% full), "
+                                   f"{size}pt, accent {accent}, Word + PDF"),
     })
     return key, f"saved (ATS {ats['score']}, {pages}p, {size}pt)"
 

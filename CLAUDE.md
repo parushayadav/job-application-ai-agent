@@ -22,8 +22,13 @@ checks truthfulness (`check_resume.py`), builds the Word file (`build_docx.py`: 
 company color, <= 2 pages via LibreOffice page count) and ATS-scores it (`ats_check.py`, target
 90, at most 10 minutes per resume), then saves a markdown draft to `_working/_drafts` ->
 `render_resumes` (5:55/14:55/21:55 ET, and at the start of every run) rebuilds the same Word file,
-scores it, uploads `Claude Resumes/<YYYY-MM-DD> - <Company> - <Title>/Chidvilas Parusha
-<Title> Resume.docx`, and fills the row's Resume Path (clickable path), ATS Score and Resume Notes.
+scores it, saves the same layout as a PDF, uploads both to `Claude Resumes/<YYYY-MM-DD>/<Company>
+- <Title>/Chidvilas Parusha Resume.docx` and `.pdf` (layout chosen 2026-10-08; a second job with
+the same company and title that day gets "(2)"; each job folder's Drive description holds its job
+key, so a re-render reuses it), and fills the row's Resume Path (link to the Word file), ATS Score
+and Resume Notes. Fitting: <= 2 pages with page 2 at most 93% full (headroom against Word/LibreOffice
+differences), spacing stretched if page 2 is under 85% full, widow/orphan control off. Folders made
+before 2026-10-08 keep the old `<date> - <Company> - <Title>` layout.
 
 Rule 2026-10-07: every queued job gets a resume. A required tool he lacks (e.g. Palantir
 Foundry) is never a reason to skip: Claude builds around his closest tools and lists the missing

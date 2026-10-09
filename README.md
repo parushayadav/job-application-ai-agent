@@ -27,9 +27,9 @@ Three parts hand work to each other through Google Drive:
    -> save a markdown draft to Drive "_working/_drafts"
 
  5:55 / 14:55 / 21:55 ET   Modal: render_resumes  (also at the start of every run_pipeline)
-   draft -> Word file (same build code) -> ATS score -> upload to
-   Drive "Claude Resumes/<YYYY-MM-DD> - <Company> - <Title>/Chidvilas Parusha <Title> Resume.docx"
-   -> fill the Sheet row: Resume Path (link), ATS Score, Resume Notes
+   draft -> Word file (same build code) + PDF of the same layout -> ATS score -> upload to
+   Drive "Claude Resumes/<YYYY-MM-DD>/<Company> - <Title>/Chidvilas Parusha Resume.docx" and ".pdf"
+   -> fill the Sheet row: Resume Path (link to the Word file), ATS Score, Resume Notes
 ```
 
 Why the hand-off: Claude writes much better resumes than the free model the pipeline used before,
@@ -62,8 +62,23 @@ saves small markdown drafts, and Modal does the binary Word upload and the Sheet
   A missing tool never stops a resume from being made.
 - Every job in the queue gets a resume. If a draft ever arrives empty or flagged, the render step
   builds the base resume for that row instead of leaving it blank.
-- Calibri, single column, exactly 2 pages or less, name and headings in the company's brand
-  color, role dates bold and right-aligned, no em or en dashes, no tables or images.
+- Calibri, single column, at most 2 pages with page 2 well used (85-93% full: the builder
+  shrinks the font when page 2 is too full and stretches spacing when it is too empty), name and
+  headings in the company's brand color, role dates bold and right-aligned, no em or en dashes,
+  no tables or images. Delivered as Word and PDF side by side.
+
+Drive layout (since 2026-10-08):
+
+```
+Claude Resumes/
+└── 2026-10-08/
+    ├── Deloitte - Forward Deployed Engineer/
+    │   ├── Chidvilas Parusha Resume.docx
+    │   └── Chidvilas Parusha Resume.pdf
+    └── Capital One - Senior Data Engineer/
+        ├── Chidvilas Parusha Resume.docx
+        └── Chidvilas Parusha Resume.pdf
+```
 - Name in normal case; headline = the job title; storytelling bullets that repeat the job's
   must-have keywords across roles; newest role gets the most bullets (max 10).
 - ATS target 90+ (hard skills 50, title 10, job-description wording 15, format 25), then the JD
@@ -97,7 +112,7 @@ scripts/
   write_sheet.py              log jobs to the Sheet, publish the Claude queue
   claude_handoff.py           Drive folder ids, queue and draft format
   render_claude_resumes.py    drafts -> Word -> Drive -> Sheet (Resume Path, ATS, notes)
-  build_docx.py               Word builder (Calibri, brand color, <= 2 pages, line-fill report)
+  build_docx.py               Word + PDF builder (Calibri, brand color, <= 2 pages, page-2 fill, line-fill report)
   ats_check.py                ATS score + JD match re-run on the finished Word file
   check_resume.py             truth check: only base resume / inventory claims, no new numbers
   validate_resume.py          structure + tailoring validators (shared)
