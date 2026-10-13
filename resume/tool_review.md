@@ -85,7 +85,7 @@ Generic phrases from the gaps column ("data pipelines", "performance tuning", "u
 ## Languages
 - [x] 55. Scala (6)
 - [-] 56. Java (4)
-- [-] 57. PowerShell (3)
+- [x] 57. PowerShell (3) - confirmed 2026-10-13 (familiar, currently working with it)
 - [-] 58. JavaScript (1)
 - [-] 59. C# / .NET (2)
 - [-] 60. Ruby (1)

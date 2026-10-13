@@ -52,7 +52,7 @@ LangChain, Pydantic and Apache Kafka (added or already present).
 - SSIS | SQL Server Integration Services
 - Apache Sqoop | Sqoop
 - Oracle Data Integrator | ODI
-- ETL | ETL pipelines
+- ETL | ETL pipelines, ETL processes
 - ELT
 - REST APIs | REST, RESTful APIs
 - FastAPI | Fast API
@@ -106,7 +106,7 @@ LangChain, Pydantic and Apache Kafka (added or already present).
 - Cloud Migration
 - Code Review
 - Performance Optimization | performance tuning, query optimization, performance and cost tuning
-- Schema Design | schema modeling
+- Schema Design | schema modeling, data schemas, data schema design
 - Cost Optimization | cost management, compute cost optimization
 - Orchestration | workflow orchestration, pipeline orchestration, data orchestration, job orchestration
 - Data Ingestion | ingestion, ingestion pipelines, data ingestion pipelines, batch and streaming ingestion
@@ -124,7 +124,7 @@ LangChain, Pydantic and Apache Kafka (added or already present).
 - Databricks Asset Bundles | DABs
 
 ## Visualization & Monitoring
-- Power BI
+- Power BI | PowerBI, Power BI dashboards
 - Tableau
 - Splunk
 
@@ -191,3 +191,21 @@ LangChain, Pydantic and Apache Kafka (added or already present).
 - Flask
 - GraphQL
 - Workday
+
+## Confirmed by Chidvilas 2026-10-13 (familiar with and currently working on)
+- Azure Functions
+- Azure Logic Apps | Logic Apps
+- Azure Key Vault | Key Vault, KeyVault
+- PowerShell
+- Hugging Face | HuggingFace, Hugging Face Transformers
+- Agentic Workflows | agentic workflow, agentic AI workflows, AI agent workflows
+- AI Skills | AI skillsets
+- Data Contracts | data contract
+- Stored Procedures | stored procedure, SQL stored procedures
+- Data Pipelines | data pipeline, data pipeline development
+- Data Visualization | data visualization artifacts, data visualizations
+- API Integration | API integrations, third-party API integration
+- Data Architecture | data architectures
+- Data Storage | data storage solutions
+- Metadata Management | metadata
+- Large-Scale Data Processing | data volume and complexity, high data volumes, large data volumes
