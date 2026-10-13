@@ -3,7 +3,8 @@ Claude's resume (2026-10-06 change).
 
 The pipeline no longer builds resumes (the free-model resumes were not good enough). This step
 reads the qualified-job queue (STATE_DIR/pending_jobs.json, filled by score_jobs.py and enriched
-by company_research.py), appends one row per job that isn't already logged (deduped by
+by company_research.py), inserts one new row per job that isn't already logged (append_rows():
+never overwrites an existing row, and checks afterwards that no job disappeared) (deduped by
 `source:id` job key) with "Resume Path", "ATS Score" and "Resume Notes" EMPTY, and adds the job
 (with its description) to Drive claude_queue.json. render_claude_resumes.py fills those three
 cells once Claude has written the resume (see scripts/claude_handoff.py).
@@ -168,9 +169,45 @@ def cell(text, limit=MAX_CELL_CHARS):
 
 
 def get_existing_keys(sheet_id):
+    return set(job_keys_in_sheet(sheet_id))
+
+
+def job_keys_in_sheet(sheet_id):
+    """-> list of the job key of every logged row (column C, header skipped)."""
     result = gws("sheets", "+read", "--spreadsheet", sheet_id, "--range", "Sheet1!C:C")
-    values = result.get("values", [])
-    return {link_key(row[0]) for row in values[1:] if row}
+    return [link_key(row[0]) for row in result.get("values", [])[1:] if row and row[0].strip()]
+
+
+def append_rows(sheet_id, rows):
+    """Add rows BELOW the existing jobs without ever overwriting one (fix 2026-10-13).
+
+    Before: `gws sheets +append` = values.append on range "A1" (first tab) with Google's default
+    insertDataOption OVERWRITE. Google guesses where the data ends and writes the new values over
+    the cells it thinks are free; with Chidvilas's Sheet (a formatted table) that guess put new
+    jobs on top of existing rows, wiping them.
+    Now: range "Sheet1!A1:N" (the jobs tab, by name) and insertDataOption INSERT_ROWS, so Google
+    inserts brand-new rows for the data: existing rows can only move down, never be written over.
+    Then the Sheet is read back and checked: every job that was there before must still be there
+    and every new job must be present. -> list of problems (empty when all is well)."""
+    before = job_keys_in_sheet(sheet_id)
+    result = gws("sheets", "spreadsheets", "values", "append", "--params", json.dumps({
+        "spreadsheetId": sheet_id, "range": "Sheet1!A1:N",
+        "valueInputOption": "USER_ENTERED", "insertDataOption": "INSERT_ROWS"}),
+        "--json", json.dumps({"values": rows}))
+    print(f"Appended {len(rows)} rows at {(result.get('updates') or {}).get('updatedRange', '?')}")
+    after = job_keys_in_sheet(sheet_id)
+    after_set = set(after)
+    problems = []
+    lost = [k for k in set(before) if k not in after_set]
+    if lost:
+        problems.append(f"{len(lost)} existing jobs disappeared from the Sheet after appending: "
+                        f"{', '.join(sorted(lost)[:10])}")
+    missing = [link_key(r[2]) for r in rows if link_key(r[2]) not in after_set]
+    if missing:
+        problems.append(f"{len(missing)} new jobs are not in the Sheet: {', '.join(missing[:10])}")
+    if len(after) != len(before) + len(rows):
+        problems.append(f"row count {len(before)} + {len(rows)} new != {len(after)} after append")
+    return problems
 
 
 if __name__ == "__main__":
@@ -218,8 +255,7 @@ if __name__ == "__main__":
             "",                                    # Resume Notes: same
         ])
 
-    if new_rows:
-        gws("sheets", "+append", "--spreadsheet", sheet_id, "--json-values", json.dumps(new_rows))
+    problems = append_rows(sheet_id, new_rows) if new_rows else []
     # Tell Claude which rows need a resume (Drive "Claude Resumes/claude_queue.json").
     import claude_handoff
     claude_handoff.add_awaiting(new_jobs, logged_at)
@@ -229,5 +265,10 @@ if __name__ == "__main__":
     state.save("unlogged_jobs.json", [])
     state.save("pending_jobs.json", [])
 
+    if problems:
+        # Raised only now, after the jobs are queued, so they still get resumes; modal_app turns
+        # this into the "WHAT BROKE" Telegram alert. Recover lost rows from the Sheet's version
+        # history (File > Version history).
+        raise RuntimeError("Sheet append check failed: " + " | ".join(problems))
     print(f"{len(jobs)} qualified jobs, {len(new_rows)} new rows added (resume pending for "
           f"Claude), {len(jobs) - len(new_rows)} already logged")

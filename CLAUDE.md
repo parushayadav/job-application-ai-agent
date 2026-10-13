@@ -223,6 +223,14 @@ Company Notes, Matched Keywords, Keyword Gaps, Source, Fingerprint, Resume Notes
 "Match %". Dedup keys off `source:id` (LinkedIn: the numeric job id, never the URL — LinkedIn
 stamps per-scrape tracking params into every link).
 
+New rows go in through `write_sheet.append_rows()`: values.append on `Sheet1!A1:N` with
+`insertDataOption=INSERT_ROWS` (inserts rows, never overwrites), then a read-back check that every
+previously logged job is still present (failure raises -> Telegram alert). Never use
+`gws sheets +append`: it appends on the first tab's A1 with Google's default OVERWRITE, which
+wrote new jobs over existing rows once Chidvilas formatted the data as a table (2026-10-13). The
+tab must stay named "Sheet1" with headers in row 1; sorting or filtering rows is safe (rows are
+found by job link, not position).
+
 `gws` gotchas: `files` is a sub-resource of `drive` (`gws drive files ...`), and `--upload` /
 `--output` are sandboxed to the current directory — run from the file's folder with a relative
 name (`gws_cli.upload_file` does this).
