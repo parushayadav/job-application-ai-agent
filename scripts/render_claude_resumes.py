@@ -1,15 +1,18 @@
-"""Turn Claude's tailored resume drafts into Word files and log them (2026-10-06).
+"""Turn Claude's tailored resume drafts into PDF resumes and log them (2026-10-06; PDF only
+since 2026-10-19).
 
 See claude_handoff.py for the whole flow. For every markdown draft in Drive
 `Claude Resumes/_working/_drafts`:
   1. download it and split the <!-- claude-resume --> header from the resume;
   2. status "flagged" or no resume body: use the base resume (job title as headline), so no
-     row is left without a resume; then check the structure (validate_resume.validate), build the Word file
-     (build_docx.py: Calibri, company color, <= 2 pages) and score it (ats_check.py);
-  3. save it as a PDF too (same LibreOffice layout, so <= 2 pages), upload both to
-     `Claude Resumes/<YYYY-MM-DD>/<Company> - <Title>/Chidvilas Parusha Resume.docx|.pdf`
-     and fill the job's row: Resume Path (clickable link to the Word file), ATS Score,
-     Resume Notes;
+     row is left without a resume; then check the structure (validate_resume.validate), build the Word layout
+     (build_docx.py: Calibri, company color, <= 2 pages) in a temp folder and score it
+     (ats_check.py);
+  3. convert it to PDF (same LibreOffice layout, so <= 2 pages), upload ONLY the PDF to
+     `Claude Resumes/<YYYY-MM-DD>/<Company> - <Title>/Chidvilas Parusha Resume.pdf`
+     and fill the job's row: Resume Path (clickable link to the PDF), ATS Score,
+     Resume Notes. The .docx is a local build step only and is never uploaded
+     (Chidvilas, 2026-10-19: one format, less Drive/cloud/token use);
   4. move the draft to `_done` and drop the job from claude_queue.json.
 A draft that fails stays in `_drafts` and is retried next time (its error goes to the log).
 
@@ -38,9 +41,8 @@ from text_rules import clean_dashes
 from validate_resume import validate
 from write_sheet import COL, get_or_create_sheet_id, link_key
 
-DOCX_MIME = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
 PDF_MIME = "application/pdf"
-RESUME_NAME = "Chidvilas Parusha Resume"   # file names (.docx and .pdf) and Word title
+RESUME_NAME = "Chidvilas Parusha Resume"   # PDF file name and document title
 CANDIDATE = "Chidvilas Parusha"
 EASTERN = ZoneInfo("America/New_York")
 
@@ -178,7 +180,8 @@ def process(draft, sheet_id, rows, workdir):
                       or "Data Engineer", 60)
     company = safe_name(job.get("company") or meta.get("company") or "Company", 50)
     # Layout (Chidvilas, 2026-10-08): Claude Resumes/<YYYY-MM-DD>/<Company> - <Title>/
-    # with "Chidvilas Parusha Resume.docx" and the same resume as "Chidvilas Parusha Resume.pdf".
+    # with "Chidvilas Parusha Resume.pdf" only (PDF only since 2026-10-19). The .docx below is a
+    # temp build step (layout, page count, ATS score); it is deleted with workdir.
     date_name = f"{now:%Y-%m-%d}"
     job_folder_name = f"{company} - {title}"
     docx_path = Path(workdir) / f"{RESUME_NAME}.docx"
@@ -196,11 +199,9 @@ def process(draft, sheet_id, rows, workdir):
     date_id = find_child(handoff.RESUMES_FOLDER_ID, date_name, folder=True) \
         or create_folder(date_name, handoff.RESUMES_FOLDER_ID)[0]
     folder_id, job_folder_name = job_folder(date_id, job_folder_name, key)
-    uploaded = upload_file(docx_path, docx_path.name, folder_id, DOCX_MIME,
-                           existing_id=find_child(folder_id, docx_path.name))
-    upload_file(pdf_path, pdf_path.name, folder_id, PDF_MIME,
-                existing_id=find_child(folder_id, pdf_path.name))
-    path_label = (f"Claude Resumes/{date_name}/{job_folder_name}/{docx_path.name}"
+    uploaded = upload_file(pdf_path, pdf_path.name, folder_id, PDF_MIME,
+                           existing_id=find_child(folder_id, pdf_path.name))
+    path_label = (f"Claude Resumes/{date_name}/{job_folder_name}/{pdf_path.name}"
                   .replace('"', "'"))
     status = "" if ats["passed"] else "BELOW 90, review before submitting. "
     write_cells(sheet_id, row, {
@@ -208,7 +209,7 @@ def process(draft, sheet_id, rows, workdir):
         "ATS Score": ats["score"],
         "Resume Notes": notes_text(f"{status}{notes} | {ats_check.summary_line(ats)} | "
                                    f"{pages or '?'} pages (page 2 {round(fill * 100) if fill else '?'}% full), "
-                                   f"{size}pt, accent {accent}, Word + PDF"),
+                                   f"{size}pt, accent {accent}, PDF"),
     })
     return key, f"saved (ATS {ats['score']}, {pages}p, {size}pt)"
 

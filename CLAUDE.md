@@ -21,11 +21,11 @@ job descriptions, in Drive `Claude Resumes/_working/claude_queue.json` -> a Clau
 checks truthfulness (`check_resume.py`), builds the Word file (`build_docx.py`: Calibri,
 company color, <= 2 pages via LibreOffice page count) and ATS-scores it (`ats_check.py`, target
 90, at most 10 minutes per resume), then saves a markdown draft to `_working/_drafts` ->
-`render_resumes` (5:55/14:55/21:55 ET, and at the start of every run) rebuilds the same Word file,
-scores it, saves the same layout as a PDF, uploads both to `Claude Resumes/<YYYY-MM-DD>/<Company>
-- <Title>/Chidvilas Parusha Resume.docx` and `.pdf` (layout chosen 2026-10-08; a second job with
+`render_resumes` (5:55/14:55/21:55 ET, and at the start of every run) rebuilds the same layout,
+scores it, converts it to PDF and uploads ONLY the PDF to `Claude Resumes/<YYYY-MM-DD>/<Company>
+- <Title>/Chidvilas Parusha Resume.pdf` (PDF only since 2026-10-19, no Word file stored; layout chosen 2026-10-08; a second job with
 the same company and title that day gets "(2)"; each job folder's Drive description holds its job
-key, so a re-render reuses it), and fills the row's Resume Path (link to the Word file), ATS Score
+key, so a re-render reuses it), and fills the row's Resume Path (link to the PDF), ATS Score
 and Resume Notes. Fitting: <= 2 pages with page 2 at most 93% full (headroom against Word/LibreOffice
 differences), spacing stretched if page 2 is under 85% full, widow/orphan control off. Folders made
 before 2026-10-08 keep the old `<date> - <Company> - <Title>` layout.
@@ -72,7 +72,7 @@ python3 scripts/score_jobs.py         # -> output/scored_jobs.json, updates keyw
 python3 scripts/company_research.py   # adds company_notes/company_focus to scored_jobs.json
 # python3 scripts/tailor_job.py       # DISABLED 2026-10-06 (Claude tailors instead)
 python3 scripts/write_sheet.py        # -> Google Sheet + Drive claude_queue.json (job descriptions)
-python3 scripts/render_claude_resumes.py  # Claude's drafts -> Word files -> Resume Path / ATS Score
+python3 scripts/render_claude_resumes.py  # Claude's drafts -> PDF resumes -> Resume Path / ATS Score
 python3 scripts/keyword_gaps.py       # mirror keyword_gaps.md to Drive
 ```
 

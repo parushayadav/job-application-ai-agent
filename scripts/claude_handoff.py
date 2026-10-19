@@ -10,9 +10,9 @@ tailored resume as markdown is ~9 KB of text. So:
   2. Claude (tailor-from-sheet skill, 5:15 / 14:15 / 21:15 ET) reads the queue, writes and
      ATS-checks one resume per job, and saves it as markdown in `_working/_drafts`.
   3. Modal (render_claude_resumes.py, :55 past those hours and at the start of every run)
-     builds the Word file with the same code Claude checked it with (build_docx.py), scores it
-     (ats_check.py), saves a PDF of it, uploads both to `Claude Resumes/<YYYY-MM-DD>/<Company> -
-     <Title>/Chidvilas Parusha Resume.docx|.pdf`, fills the row's Resume Path / ATS Score / Resume Notes, moves the
+     builds the layout with the same code Claude checked it with (build_docx.py), scores it
+     (ats_check.py), converts it to PDF and uploads only the PDF to `Claude Resumes/<YYYY-MM-DD>/
+     <Company> - <Title>/Chidvilas Parusha Resume.pdf` (PDF only since 2026-10-19), fills the row's Resume Path / ATS Score / Resume Notes, moves the
      draft to `_done` and drops the job from the queue.
 
 `Claude Resumes` itself holds only the per-job resume folders; everything else is in `_working`.

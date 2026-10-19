@@ -27,9 +27,9 @@ Three parts hand work to each other through Google Drive:
    -> save a markdown draft to Drive "_working/_drafts"
 
  5:55 / 14:55 / 21:55 ET   Modal: render_resumes  (also at the start of every run_pipeline)
-   draft -> Word file (same build code) + PDF of the same layout -> ATS score -> upload to
-   Drive "Claude Resumes/<YYYY-MM-DD>/<Company> - <Title>/Chidvilas Parusha Resume.docx" and ".pdf"
-   -> fill the Sheet row: Resume Path (link to the Word file), ATS Score, Resume Notes
+   draft -> layout (same build code) -> PDF -> ATS score -> upload ONLY the PDF to
+   Drive "Claude Resumes/<YYYY-MM-DD>/<Company> - <Title>/Chidvilas Parusha Resume.pdf"
+   -> fill the Sheet row: Resume Path (link to the PDF), ATS Score, Resume Notes
 ```
 
 Why the hand-off: Claude writes much better resumes than the free model the pipeline used before,
@@ -65,7 +65,7 @@ saves small markdown drafts, and Modal does the binary Word upload and the Sheet
 - Calibri, single column, at most 2 pages with page 2 well used (85-93% full: the builder
   shrinks the font when page 2 is too full and stretches spacing when it is too empty), name and
   headings in the company's brand color, role dates bold and right-aligned, no em or en dashes,
-  no tables or images. Delivered as Word and PDF side by side.
+  no tables or images. Delivered as a PDF only (since 2026-10-19; no Word copy is stored).
 
 Drive layout (since 2026-10-08):
 
@@ -73,10 +73,8 @@ Drive layout (since 2026-10-08):
 Claude Resumes/
 └── 2026-10-08/
     ├── Deloitte - Forward Deployed Engineer/
-    │   ├── Chidvilas Parusha Resume.docx
     │   └── Chidvilas Parusha Resume.pdf
     └── Capital One - Senior Data Engineer/
-        ├── Chidvilas Parusha Resume.docx
         └── Chidvilas Parusha Resume.pdf
 ```
 - Name in normal case; headline = the job title; storytelling bullets that repeat the job's
@@ -92,8 +90,8 @@ Claude Resumes/
 |---|---|
 | Job Title, Company, Job Link | the posting |
 | Match % | keyword match against the skills inventory |
-| Resume Path | clickable link to the Word resume in Drive |
-| ATS Score | score of the finished Word file (target 90+) |
+| Resume Path | clickable link to the PDF resume in Drive |
+| ATS Score | score of the finished resume (target 90+) |
 | Status, Timestamp | for your own tracking; time logged (ET) |
 | Company Notes | short company research for the summary and interviews |
 | Matched Keywords, Keyword Gaps | what matched; what the job wants that you lack |
@@ -111,9 +109,9 @@ scripts/
   company_research.py         company notes and focus (OpenRouter)
   write_sheet.py              log jobs to the Sheet, publish the Claude queue
   claude_handoff.py           Drive folder ids, queue and draft format
-  render_claude_resumes.py    drafts -> Word -> Drive -> Sheet (Resume Path, ATS, notes)
-  build_docx.py               Word + PDF builder (Calibri, brand color, <= 2 pages, page-2 fill, line-fill report)
-  ats_check.py                ATS score + JD match re-run on the finished Word file
+  render_claude_resumes.py    drafts -> PDF -> Drive -> Sheet (Resume Path, ATS, notes)
+  build_docx.py               layout + PDF builder (Calibri, brand color, <= 2 pages, page-2 fill, line-fill report)
+  ats_check.py                ATS score + JD match re-run on the finished resume
   check_resume.py             truth check: only base resume / inventory claims, no new numbers
   validate_resume.py          structure + tailoring validators (shared)
   inventory.py                parses skills_inventory.md (exact matching, never fuzzy)

@@ -1,6 +1,6 @@
 ---
 name: tailor-from-sheet
-description: Claude's scheduled resume tailoring for Chidvilas Parusha. Reads the jobs waiting for a resume from Drive claude_queue.json (filled by the Modal pipeline from the Job Application Tracker Sheet), writes a tailored ATS-friendly resume from the base resume for each, ATS-checks the Word version (target 90+, max 10 minutes per resume), and saves it as a draft in Drive for Modal to publish as Chidvilas Parusha Resume.docx and .pdf in a dated job folder, with its path, ATS score and notes in the Sheet. Use when asked to tailor resumes from the Sheet or queue, or when the 5:15 / 14:15 / 21:15 ET scheduled run fires.
+description: Claude's scheduled resume tailoring for Chidvilas Parusha. Reads the jobs waiting for a resume from Drive claude_queue.json (filled by the Modal pipeline from the Job Application Tracker Sheet), writes a tailored ATS-friendly resume from the base resume for each, ATS-checks the built layout (target 90+, max 10 minutes per resume), and saves it as a draft in Drive for Modal to publish as Chidvilas Parusha Resume.pdf (PDF only) in a dated job folder, with its path, ATS score and notes in the Sheet. Use when asked to tailor resumes from the Sheet or queue, or when the 5:15 / 14:15 / 21:15 ET scheduled run fires.
 ---
 
 # Tailor resumes from the queue (Claude path, since 2026-10-06)
@@ -11,7 +11,7 @@ How the work is split (details in `scripts/claude_handoff.py`):
 |---|---|---|
 | 5:00, 14:00, 21:00 | Modal `run_pipeline` | fetch LinkedIn jobs (Data Engineer, Data Platform Engineer, Forward Deployed Engineer, AI Engineer searches), score them, log qualified ones to the Sheet (Data Engineer titles >= 50% match; other engineer titles >= 60% and >= 2 core data technologies), and list them in Drive `claude_queue.json` with their job descriptions |
 | 5:15, 14:15, 21:15 | **Claude (this skill)** | write, check and ATS-score one resume per waiting job; save each as a markdown draft in Drive `_drafts` |
-| 5:55, 14:55, 21:55 (+ start of each :00 run) | Modal `render_resumes` | build the same Word file (`scripts/build_docx.py`), score it (`scripts/ats_check.py`), save a PDF of it, upload both as `Claude Resumes/<YYYY-MM-DD>/<Company> - <Title>/Chidvilas Parusha Resume.docx` and `.pdf`, and fill the job's Sheet row: **Resume Path** (clickable path), **ATS Score**, **Resume Notes** |
+| 5:55, 14:55, 21:55 (+ start of each :00 run) | Modal `render_resumes` | build the same layout (`scripts/build_docx.py`, a temporary Word file), score it (`scripts/ats_check.py`), convert it to PDF, upload ONLY the PDF as `Claude Resumes/<YYYY-MM-DD>/<Company> - <Title>/Chidvilas Parusha Resume.pdf` (no Word file is stored, since 2026-10-19), and fill the job's Sheet row: **Resume Path** (clickable link to the PDF), **ATS Score**, **Resume Notes** |
 
 Claude never uploads Word or PDF files (binary uploads through the Drive connector cost tens of
 thousands of tokens) and never edits the Sheet directly. Claude never applies to jobs:
@@ -137,7 +137,7 @@ Style and format
 - No filler: "leveraging", "spearheading", "passionate", "proven track record",
   "cutting-edge", "synergy", "results-driven". Plain, specific, active verbs.
 - Spell out an acronym once where the JD uses the long form, e.g. "Model Context Protocol (MCP)".
-- Output is a Word file built by `scripts/build_docx.py`: Calibri, single column, Word's own
+- The delivered resume is a PDF (only format stored in Drive since 2026-10-19), converted from the layout built by `scripts/build_docx.py`: Calibri, single column, Word's own
   bullets, standard headings, no tables, images, text boxes, headers or footers. It steps the
   font from 11pt down to 9.5pt until the resume fits **2 pages** with page 2 at most 93% full
   (headroom so Word never shows a 3rd page), then stretches spacing evenly if page 2 is under
@@ -145,8 +145,8 @@ Style and format
   needs a third page, cut the least relevant bullets in the oldest roles first. Use page 2
   well: if it is under 80% full even after stretching (extra spacing 4.0pt), add a relevant
   bullet (newest roles first, within the per-role limits) and rebuild; do not leave a large
-  empty space at the end of page 2. A PDF of the same layout is delivered next to the Word
-  file (`--pdf` writes it locally if you want to look).
+  empty space at the end of page 2. Modal converts that same layout to the PDF it delivers
+  (`--pdf` writes it locally if you want to look); the .docx is only a build step.
 - Accent color (name, section headings and the bold role dates) = the company's main brand
   color as `#RRGGBB` (from
   what you know or a quick web search for "<company> brand color hex"). It is darkened for
@@ -209,5 +209,5 @@ version that passes the truthfulness check and explain the shortfall in the note
 
 ## Finish
 
-Report in a few lines: drafts written (company, title, ATS score), jobs below 90 and why, jobs left in the queue for the next run. The Word files and Sheet entries
+Report in a few lines: drafts written (company, title, ATS score), jobs below 90 and why, jobs left in the queue for the next run. The PDF resumes and Sheet entries
 appear after Modal's :55 run.

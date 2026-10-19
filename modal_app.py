@@ -9,7 +9,7 @@ Claude does (scripts/claude_handoff.py has the full flow):
   :00  run_pipeline     fetch, score, research, log rows + publish Drive claude_queue.json
   :15  Claude           reads the queue, writes and ATS-checks one resume per job, saves it as
                         a markdown draft in Drive (.claude/skills/tailor-from-sheet/SKILL.md)
-  :55  render_resumes   builds each draft as a Word file, scores it, uploads it to a dated
+  :55  render_resumes   builds each draft as a PDF resume, scores it, uploads it to a dated
                         per-job folder, fills Resume Path / ATS Score / Resume Notes in the Sheet
                         (also runs at the start of :00)
 scripts/tailor_job.py is kept but no longer run.
