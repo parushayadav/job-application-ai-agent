@@ -124,6 +124,27 @@ def _bottom_border(paragraph, hex_color):
     p_pr.append(borders)
 
 
+ONE_LINE_SECTIONS = ("education", "certifications")
+MIN_ONE_LINE_SHRINK = 1.5   # pt: an education line may shrink this much to stay on one line
+
+
+def one_line_size(text, body_pt, margin_in):
+    """Font size that keeps a bullet on ONE line (Chidvilas, 2026-10-22: each degree on one
+    line): body size if it fits, else just small enough to fit, at most MIN_ONE_LINE_SHRINK pt
+    smaller. Measured with Carlito (Calibri's metrics); without it, the body size."""
+    path = _carlito()
+    if not path:
+        return body_pt
+    from PIL import ImageFont
+    font = ImageFont.truetype(path, size=100)
+    width_pt = font.getlength(re.sub(r"\*\*(.+?)\*\*", r"\1", text)) * body_pt / 100.0
+    avail_pt = (8.5 - 2 * margin_in - BULLET_INDENT_IN) * 72 * 0.98   # 2% safety for Word
+    if width_pt <= avail_pt:
+        return body_pt
+    size = int(body_pt * avail_pt / width_pt * 2) / 2.0                 # round down to 0.5pt
+    return max(size, body_pt - MIN_ONE_LINE_SHRINK)
+
+
 def build(md_text, out_path, accent=None, title="Resume", body_pt=11, margin_in=0.75, extra=0.0):
     """extra: points of additional space after each bullet (twice that before roles and
     section headings), used to fill page 2 evenly."""
@@ -188,7 +209,10 @@ def build(md_text, out_path, accent=None, title="Resume", body_pt=11, margin_in=
                 else:
                     p = doc.add_paragraph(style="List Bullet")
                     _spacing(p, after=1 + extra, size=body_pt)
-                    _add_runs(p, text, body_pt)
+                    size = body_pt
+                    if title_text.lower() in ONE_LINE_SECTIONS:
+                        size = one_line_size(text, body_pt, margin_in)
+                    _add_runs(p, text, size)
             elif in_roles and line.lower().startswith("skills:"):
                 p = doc.add_paragraph()
                 _spacing(p, before=1, after=2, size=body_pt)

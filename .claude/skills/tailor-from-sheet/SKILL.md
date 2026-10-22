@@ -25,7 +25,7 @@ touches is in its `_working` subfolder:
 | What | Drive id |
 |---|---|
 | `_working/claude_queue.json` (jobs waiting, oldest first) | `1xfEXFq91SX_WJcK8p2w1NzzN2WlYObcq` |
-| `_working/base_resume.md` (source of truth, private, never commit it) | `1DQbnXPmvn7clDaHOsvqOqQdXCNPhnI8d` |
+| `_working/base_resume.md` (source of truth, private, never commit it) | `1r4co1CtYyNNOY6jUBXCEvEvyHiT8jS6-` |
 | `_working/_drafts` folder (Claude writes here) | `1VZQO5OLjyRI-5ut89iZ-CR7BSF5imPD5` |
 | `_working/_done` folder (published drafts) | `1pucha6JEJuQNeAQM76H5vkAPJMRGruq0` |
 
@@ -180,8 +180,8 @@ The four paragraphs
 4. Education, credentials and close:
    - Always highlight his Master's in Computer and Information Science from Cleveland State
      University as his engineering foundation.
-   - Mention the MBA: "completing an MBA with a Project Management concentration, graduating in
-     December 2026", and why he took it: to prepare for future managerial responsibilities and
+   - Mention the MBA: "completing an MBA in Project Management, graduating in December 2026"
+     (never "concentration"), and why he took it: to prepare for future managerial responsibilities and
      to communicate better with the business users he works with today.
    - Name the one or two certifications that fit the JD (Azure AI Engineer Associate, Fabric
      Data Engineer Associate, AWS Certified Data Engineer, Agentic AI Business Solutions

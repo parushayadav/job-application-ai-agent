@@ -31,8 +31,8 @@ differences), spacing stretched if page 2 is under 85% full, widow/orphan contro
 before 2026-10-08 keep the old `<date> - <Company> - <Title>` layout.
 
 Cover letters (2026-10-22): Claude also writes a one-page cover letter per job (rules in the
-tailor-from-sheet skill: ~300 words, 4 paragraphs, Cleveland State MS + MBA (Project Management
-concentration, Dec 2026) always mentioned, no work authorization/salary talk, base-resume facts
+tailor-from-sheet skill: ~300 words, 4 paragraphs, Cleveland State MS + MBA (Project Management,
+Dec 2026) always mentioned, no work authorization/salary talk, base-resume facts
 and numbers only), checked by `scripts/check_cover_letter.py`. It travels in the same draft after
 a `<!-- cover-letter -->` line (`claude_handoff.split_cover_letter`); `render_claude_resumes.py`
 builds it with `scripts/build_cover_letter.py` (resume's header and color, one page) and uploads
