@@ -39,7 +39,8 @@ Sheet columns (A-N): Job Title, Company, Job Link, Match %, Resume Path, ATS Sco
 Timestamp, Company Notes, Matched Keywords, Keyword Gaps, Source, Fingerprint, Resume Notes.
 `write_sheet.migrate_layout()` inserted ATS Score at F once (older rows shift right intact).
 
-Searches: "Data Engineer" (55% of the fetch budget), "Data Platform Engineer", "Forward Deployed
+Searches (all **remote only** since 2026-10-22: LinkedIn `f_WT=2` on every search URL, plus
+`linkedin.explicitly_not_remote()` dropping postings the actor marks on-site/hybrid): "Data Engineer" (55% of the fetch budget), "Data Platform Engineer", "Forward Deployed
 Engineer", "AI Engineer" (15% each). Two lanes (`filters.title_lane`): Data Engineer titles
 qualify at >= 50% keyword match; any other engineer/developer/architect title needs >= 60% AND
 >= 2 core data technologies in the JD (`score_jobs.CORE_DATA_TERMS`). Excluded titles: sales,

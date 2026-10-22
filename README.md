@@ -38,6 +38,8 @@ saves small markdown drafts, and Modal does the binary Word upload and the Sheet
 
 ### Which jobs qualify
 
+- **Remote only** (since 2026-10-22): every LinkedIn search uses LinkedIn's Remote filter, and any
+  posting still marked on-site or hybrid is dropped, so only remote jobs get a resume.
 - **Searches:** "Data Engineer" (55% of the daily fetch budget), "Data Platform Engineer",
   "Forward Deployed Engineer" and "AI Engineer" (15% each).
 - **Two lanes** (`scripts/filters.py`, `scripts/score_jobs.py`):

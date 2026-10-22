@@ -4,6 +4,11 @@ Uses search-URL mode rather than the actor's `datePosted` enum: LinkedIn's `f_TP
 filter accepts any window, so each run fetches only what was posted since the previous run
 (the enum's smallest option is 24h, which would re-fetch -- and re-bill -- the same jobs on all
 three daily runs). Billing is ~$1 per 1,000 results returned.
+
+Remote only (Chidvilas, 2026-10-22): every search carries LinkedIn's "Remote" workplace filter
+(`f_WT=2`; 1 = on-site, 3 = hybrid are left out), so only remote postings are fetched, billed,
+scored and given a resume. As a backstop, a posting the actor explicitly marks as on-site or
+hybrid (workplace fields, or "(On-site)"/"(Hybrid)" in the location) is dropped in fetch().
 """
 import os
 import re
@@ -26,6 +31,8 @@ SEARCHES = [
     ("AI Engineer", 0.15),
 ]
 LOCATION = "United States"
+WORKPLACE_REMOTE = "2"    # LinkedIn f_WT: 1 On-site, 2 Remote, 3 Hybrid (remote only, 2026-10-22)
+NOT_REMOTE = re.compile(r"\b(on[- ]?site|onsite|hybrid)\b", re.IGNORECASE)
 
 JOB_ID_RE = re.compile(r"/jobs/view/(?:[^/?#]*-)?(\d+)")
 
@@ -40,6 +47,7 @@ def _search_url(keywords, window_seconds):
         "keywords": keywords,
         "location": LOCATION,
         "f_TPR": f"r{int(window_seconds)}",
+        "f_WT": WORKPLACE_REMOTE,
         "sortBy": "DD",  # newest first, so a capped fetch keeps the freshest postings
     })
 
@@ -70,9 +78,26 @@ def fetch(window_seconds, limit):
         search_limit = min(search_limit, remaining)
         raw = _run_search(keywords, window_seconds, search_limit, api_key)
         remaining -= len(raw)
-        jobs.extend(to_job(item) for item in raw)
-        print(f"  linkedin '{keywords}': {len(raw)} jobs")
+        remote = [item for item in raw if not explicitly_not_remote(item)]
+        jobs.extend(to_job(item) for item in remote)
+        dropped = len(raw) - len(remote)
+        print(f"  linkedin '{keywords}' (remote only): {len(remote)} jobs"
+              + (f", {dropped} dropped as on-site/hybrid" if dropped else ""))
     return jobs
+
+
+def explicitly_not_remote(item):
+    """True only when the actor's own data says the posting is on-site or hybrid. Unknown or
+    missing workplace info keeps the job (the f_WT=2 search filter already asked for remote)."""
+    if item.get("workRemoteAllowed") is False:
+        return True
+    workplace = item.get("workplaceTypes") or item.get("workplaceType") or item.get("workType")
+    if isinstance(workplace, (list, tuple)):
+        workplace = " ".join(str(w) for w in workplace)
+    if workplace and NOT_REMOTE.search(str(workplace)) and "remote" not in str(workplace).lower():
+        return True
+    location = str(item.get("location") or "")
+    return bool(re.search(r"\((on[- ]?site|hybrid)\)", location, re.IGNORECASE))
 
 
 def to_job(item):
