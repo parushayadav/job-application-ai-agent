@@ -69,15 +69,22 @@ saves small markdown drafts, and Modal does the binary Word upload and the Sheet
   headings in the company's brand color, role dates bold and right-aligned, no em or en dashes,
   no tables or images. Delivered as a PDF only (since 2026-10-19; no Word copy is stored).
 
+Cover letters (since 2026-10-22): every job also gets a one-page cover letter written for it
+(~300 words: a hook with a real achievement, two proof stories matched to the job's top needs,
+his Cleveland State master's, MBA and fitting certifications, and a short close), checked by
+`scripts/check_cover_letter.py` and saved as a PDF next to the resume.
+
 Drive layout (since 2026-10-08):
 
 ```
 Claude Resumes/
 └── 2026-10-08/
     ├── Deloitte - Forward Deployed Engineer/
-    │   └── Chidvilas Parusha Resume.pdf
+    │   ├── Chidvilas Parusha Resume.pdf
+    │   └── Chidvilas Parusha Cover Letter.pdf
     └── Capital One - Senior Data Engineer/
-        └── Chidvilas Parusha Resume.pdf
+        ├── Chidvilas Parusha Resume.pdf
+        └── Chidvilas Parusha Cover Letter.pdf
 ```
 - Name in normal case; headline = the job title; storytelling bullets that repeat the job's
   must-have keywords across roles; newest role gets the most bullets (max 10).
@@ -114,6 +121,8 @@ scripts/
   render_claude_resumes.py    drafts -> PDF -> Drive -> Sheet (Resume Path, ATS, notes)
   build_docx.py               layout + PDF builder (Calibri, brand color, <= 2 pages, page-2 fill, line-fill report)
   ats_check.py                ATS score + JD match re-run on the finished resume
+  check_cover_letter.py       cover letter checks (length, structure, truth, no copied bullets)
+  build_cover_letter.py       one-page cover letter Word/PDF with the resume's header and color
   check_resume.py             truth check: only base resume / inventory claims, no new numbers
   validate_resume.py          structure + tailoring validators (shared)
   inventory.py                parses skills_inventory.md (exact matching, never fuzzy)

@@ -13,6 +13,10 @@ See claude_handoff.py for the whole flow. For every markdown draft in Drive
      and fill the job's row: Resume Path (clickable link to the PDF), ATS Score,
      Resume Notes. The .docx is a local build step only and is never uploaded
      (Chidvilas, 2026-10-19: one format, less Drive/cloud/token use);
+  3b. if the draft carries a cover letter (since 2026-10-22, after `<!-- cover-letter -->`),
+     build it as a one-page PDF with the resume's header and color (build_cover_letter.py) and
+     upload "Chidvilas Parusha Cover Letter.pdf" to the same job folder (no Sheet column; its
+     status goes into Resume Notes; a cover letter problem never blocks the resume);
   4. move the draft to `_done` and drop the job from claude_queue.json.
 A draft that fails stays in `_drafts` and is retried next time (its error goes to the log).
 
@@ -35,6 +39,7 @@ sys.path.insert(0, str(ROOT / "scripts"))
 
 import ats_check
 import claude_handoff as handoff
+import build_cover_letter
 from build_docx import build_fitted, to_pdf
 from gws_cli import create_folder, gws, upload_file
 from text_rules import clean_dashes
@@ -42,7 +47,8 @@ from validate_resume import validate
 from write_sheet import COL, get_or_create_sheet_id, link_key
 
 PDF_MIME = "application/pdf"
-RESUME_NAME = "Chidvilas Parusha Resume"   # PDF file name and document title
+RESUME_NAME = "Chidvilas Parusha Resume"
+COVER_NAME = "Chidvilas Parusha Cover Letter"   # next to the resume PDF, since 2026-10-22   # PDF file name and document title
 CANDIDATE = "Chidvilas Parusha"
 EASTERN = ZoneInfo("America/New_York")
 
@@ -97,6 +103,28 @@ def find_child(parent_id, name, folder=False):
     files = gws("drive", "files", "list", "--params", json.dumps({
         "q": q, "fields": "files(id)", "orderBy": "createdTime desc", "pageSize": 1})).get("files", [])
     return files[0]["id"] if files else None
+
+
+def upload_cover_letter(letter, resume, company, title, accent, folder_id, workdir):
+    """Build the cover letter (one page, same header and color as the resume) and upload it as
+    "Chidvilas Parusha Cover Letter.pdf" next to the resume. Never blocks the resume: any
+    problem is reported in Resume Notes instead. -> short note for Resume Notes."""
+    if not letter:
+        return "no cover letter in this draft"
+    try:
+        docx_path = Path(workdir) / f"{COVER_NAME}.docx"
+        _, pages, size = build_cover_letter.build_fitted(letter, resume, docx_path, company,
+                                                         title, accent)
+        pdf_path = to_pdf(docx_path, workdir)
+        if not pdf_path:
+            return "COVER LETTER NOT BUILT (PDF conversion failed)"
+        upload_file(pdf_path, pdf_path.name, folder_id, PDF_MIME,
+                    existing_id=find_child(folder_id, pdf_path.name))
+        if pages and pages > 1:
+            return f"COVER LETTER IS {pages} PAGES, shorten it before sending"
+        return f"cover letter PDF, 1 page, {size}pt"
+    except Exception as e:                       # the resume still gets published
+        return f"COVER LETTER FAILED: {e}"[:200]
 
 
 def job_folder(parent_id, name, key):
@@ -158,6 +186,7 @@ def notes_text(text):
 def process(draft, sheet_id, rows, workdir):
     text = download_text(draft["id"], workdir)
     meta, resume = handoff.parse_draft(text)
+    resume, letter = handoff.split_cover_letter(resume)
     key = meta.get("key", "")
     job = handoff.awaiting().get(key) or job_from_meta(meta)
     row = rows.get(key) or rows.get(link_key(job.get("link", "")))
@@ -201,6 +230,8 @@ def process(draft, sheet_id, rows, workdir):
     folder_id, job_folder_name = job_folder(date_id, job_folder_name, key)
     uploaded = upload_file(pdf_path, pdf_path.name, folder_id, PDF_MIME,
                            existing_id=find_child(folder_id, pdf_path.name))
+    cover_note = upload_cover_letter(letter, resume, company, title, meta.get("accent"),
+                                     folder_id, workdir)
     path_label = (f"Claude Resumes/{date_name}/{job_folder_name}/{pdf_path.name}"
                   .replace('"', "'"))
     status = "" if ats["passed"] else "BELOW 90, review before submitting. "
@@ -209,7 +240,7 @@ def process(draft, sheet_id, rows, workdir):
         "ATS Score": ats["score"],
         "Resume Notes": notes_text(f"{status}{notes} | {ats_check.summary_line(ats)} | "
                                    f"{pages or '?'} pages (page 2 {round(fill * 100) if fill else '?'}% full), "
-                                   f"{size}pt, accent {accent}, PDF"),
+                                   f"{size}pt, accent {accent}, PDF | {cover_note}"),
     })
     return key, f"saved (ATS {ats['score']}, {pages}p, {size}pt)"
 

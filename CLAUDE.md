@@ -30,6 +30,16 @@ and Resume Notes. Fitting: <= 2 pages with page 2 at most 93% full (headroom aga
 differences), spacing stretched if page 2 is under 85% full, widow/orphan control off. Folders made
 before 2026-10-08 keep the old `<date> - <Company> - <Title>` layout.
 
+Cover letters (2026-10-22): Claude also writes a one-page cover letter per job (rules in the
+tailor-from-sheet skill: ~300 words, 4 paragraphs, Cleveland State MS + MBA (Project Management
+concentration, Dec 2026) always mentioned, no work authorization/salary talk, base-resume facts
+and numbers only), checked by `scripts/check_cover_letter.py`. It travels in the same draft after
+a `<!-- cover-letter -->` line (`claude_handoff.split_cover_letter`); `render_claude_resumes.py`
+builds it with `scripts/build_cover_letter.py` (resume's header and color, one page) and uploads
+`Chidvilas Parusha Cover Letter.pdf` next to the resume PDF. No Sheet column; a cover letter
+problem is reported in Resume Notes and never blocks the resume. The Write hook skips
+`output/tailored/*.cover.md`.
+
 Rule 2026-10-07: every queued job gets a resume. A required tool he lacks (e.g. Palantir
 Foundry) is never a reason to skip: Claude builds around his closest tools and lists the missing
 one in Resume Notes. If a flagged or empty draft ever arrives, `render_claude_resumes.py` builds

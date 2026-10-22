@@ -1,6 +1,6 @@
 ---
 name: tailor-from-sheet
-description: Claude's scheduled resume tailoring for Chidvilas Parusha. Reads the jobs waiting for a resume from Drive claude_queue.json (filled by the Modal pipeline from the Job Application Tracker Sheet), writes a tailored ATS-friendly resume from the base resume for each, ATS-checks the built layout (target 90+, max 10 minutes per resume), and saves it as a draft in Drive for Modal to publish as Chidvilas Parusha Resume.pdf (PDF only) in a dated job folder, with its path, ATS score and notes in the Sheet. Use when asked to tailor resumes from the Sheet or queue, or when the 5:15 / 14:15 / 21:15 ET scheduled run fires.
+description: Claude's scheduled resume tailoring for Chidvilas Parusha. Reads the jobs waiting for a resume from Drive claude_queue.json (filled by the Modal pipeline from the Job Application Tracker Sheet), writes a tailored ATS-friendly resume from the base resume for each, ATS-checks the built layout (target 90+, max 10 minutes per resume), writes a matching one-page cover letter, and saves both as a draft in Drive for Modal to publish as Chidvilas Parusha Resume.pdf and Chidvilas Parusha Cover Letter.pdf in a dated job folder, with its path, ATS score and notes in the Sheet. Use when asked to tailor resumes from the Sheet or queue, or when the 5:15 / 14:15 / 21:15 ET scheduled run fires.
 ---
 
 # Tailor resumes from the queue (Claude path, since 2026-10-06)
@@ -10,7 +10,7 @@ How the work is split (details in `scripts/claude_handoff.py`):
 | When (ET) | Who | What |
 |---|---|---|
 | 5:00, 14:00, 21:00 | Modal `run_pipeline` | fetch LinkedIn jobs (Data Engineer, Data Platform Engineer, Forward Deployed Engineer, AI Engineer searches), score them, log qualified ones to the Sheet (Data Engineer titles >= 50% match; other engineer titles >= 60% and >= 2 core data technologies), and list them in Drive `claude_queue.json` with their job descriptions |
-| 5:15, 14:15, 21:15 | **Claude (this skill)** | write, check and ATS-score one resume per waiting job; save each as a markdown draft in Drive `_drafts` |
+| 5:15, 14:15, 21:15 | **Claude (this skill)** | write, check and ATS-score one resume per waiting job, plus its cover letter; save both as one markdown draft in Drive `_drafts` |
 | 5:55, 14:55, 21:55 (+ start of each :00 run) | Modal `render_resumes` | build the same layout (`scripts/build_docx.py`, a temporary Word file), score it (`scripts/ats_check.py`), convert it to PDF, upload ONLY the PDF as `Claude Resumes/<YYYY-MM-DD>/<Company> - <Title>/Chidvilas Parusha Resume.pdf` (no Word file is stored, since 2026-10-19), and fill the job's Sheet row: **Resume Path** (clickable link to the PDF), **ATS Score**, **Resume Notes** |
 
 Claude never uploads Word or PDF files (binary uploads through the Drive connector cost tens of
@@ -152,7 +152,60 @@ Style and format
   what you know or a quick web search for "<company> brand color hex"). It is darkened for
   readability. If unsure, leave the `accent:` line out and navy is used.
 
-## Per job (time box: 10 minutes)
+## Cover letter rules (agreed with Chidvilas 2026-10-22)
+
+Every job gets a cover letter written for THIS job, alongside its resume. It goes in the same
+draft and Modal publishes it as `Chidvilas Parusha Cover Letter.pdf` next to the resume PDF
+(no Sheet column). Recruiters skim it in under a minute: it must show he read the posting,
+connect his strongest two or three proofs to what the job needs most, and sound like a person.
+
+Format (checked by `scripts/check_cover_letter.py`, built by `scripts/build_cover_letter.py`):
+- One page. Body ~300 words (230 to 380 counted), 4 paragraphs (5 at most), plain prose, no
+  bullets, no headings, no bold. Modal adds the header (name in the company color, contact
+  line), the date, "Hiring Team, <Company>" and a bold "Re: <Job Title>" line: do not write those.
+- Starts with the greeting on its own line: "Dear Hiring Team," (or "Dear <Name>," when the JD
+  names the hiring manager). Never "To Whom It May Concern".
+- Ends with "Sincerely," and on the next line "Chidvilas Parusha".
+
+The four paragraphs
+1. Hook: open with one concrete, relevant achievement or problem he solved, not "I am writing
+   to apply". Name the exact job title and the company, and say in one clause why this role.
+2. Proof story for the JD's top requirement: the problem, what he built (JD tools named in
+   context), the result (a number from the base resume). For remote roles, say he delivers
+   remotely: at HCL he works fully remote with The Standard's claims, underwriting and business
+   teams (the HCL role is Remote in the base resume).
+3. Second proof story for the next most important requirement, ideally from a different role
+   (Nomura, Cleveland State or Yana) to show range; one honest bridge sentence for a must-have
+   tool he lacks, if any (see below).
+4. Education, credentials and close:
+   - Always highlight his Master's in Computer and Information Science from Cleveland State
+     University as his engineering foundation.
+   - Mention the MBA: "completing an MBA with a Project Management concentration, graduating in
+     December 2026", and why he took it: to prepare for future managerial responsibilities and
+     to communicate better with the business users he works with today.
+   - Name the one or two certifications that fit the JD (Azure AI Engineer Associate, Fabric
+     Data Engineer Associate, AWS Certified Data Engineer, Agentic AI Business Solutions
+     Architect, GitHub Copilot).
+   - Close with availability and a call to action, e.g. "I am ready to start promptly and would
+     welcome a conversation about ..." (his notice period is not confirmed yet: do not state a
+     number of weeks).
+   (Paragraph 4 may be split into two short paragraphs: education, then the close.)
+
+What may be said (same truth rules as the resume)
+- Only facts from the base resume and skills inventory; only numbers from the base resume
+  (300%, 64.4%, 100%, 100+, 50K+, 100K+, 40%, 5+, 50+, 8+ years, petabyte-scale) and his
+  education dates. Rephrase in natural sentences: never paste resume bullets (the checker fails
+  any 12+ word sentence copied from the resume).
+- A must-have tool he lacks (a gap keyword) may be named only in one sentence that says how his
+  experience transfers to it, e.g. "My platform work has been on Databricks rather than
+  Palantir Foundry, but it transfers directly: ...". Never claim it, never apologize.
+- Never mention salary, visa, sponsorship or work authorization (his choice: the application
+  form covers it). No filler words (passionate, results-driven, leveraging, spearheading,
+  proven track record, synergy, cutting-edge, team player). No em or en dashes.
+- Company facts only from the JD and company_notes, checked against the JD (as for the resume).
+- Tone: confident, specific, warm; first person; short sentences; American English.
+
+## Per job (time box: 10 minutes for the resume, about 3 more for the cover letter)
 
 Note the start time. Spend at most **10 minutes** on one job; at the limit, save the best
 version that passes the truthfulness check and explain the shortfall in the notes.
@@ -181,6 +234,15 @@ version that passes the truthfulness check and explain the shortfall in the note
    Then re-run the JD match on the finished resume (the `JD MATCH` line ats_check prints): any
    keyword listed as "missing but you have it" must be added and the check repeated. Put the
    final `resume vs JD match` % in `notes:`.
+3b. Write the cover letter to `output/tailored/<id>.cover.md` following the cover letter rules,
+   then check it (must print PASS; fix what it lists, and act on any WARN) and build it (must be
+   1 page):
+   ```bash
+   python3 scripts/check_cover_letter.py output/tailored/<id>.cover.md --resume output/tailored/<id>.md \
+     --company "<company>" --title "<job title>" --gaps "<gap_keywords, comma separated>"
+   python3 scripts/build_cover_letter.py output/tailored/<id>.cover.md output/docx/<id>-cover.docx \
+     --resume output/tailored/<id>.md --company "<company>" --title "<job title>" --accent "#RRGGBB"
+   ```
 4. Save the draft with Drive `create_file`: title `<id> - <Company> - <Title>.md`,
    `parentId` = the `_drafts` folder, `contentMimeType: text/markdown`,
    `disableConversionToGoogleType: true`, `textContent` = this header followed by the resume:
@@ -193,8 +255,15 @@ version that passes the truthfulness check and explain the shortfall in the note
    notes: <see below>
    -->
    # Chidvilas Parusha
-   ...
+   ...(the resume)...
+
+   <!-- cover-letter -->
+   Dear Hiring Team,
+   ...(the cover letter)...
+   Sincerely,
+   Chidvilas Parusha
    ```
+   The `<!-- cover-letter -->` line (exactly that) separates the resume from the cover letter.
    `notes:` is ONE line (no line breaks) for Chidvilas to read before he submits: what the
    company does and anything notable about the role; what was hard to match; tools the JD wants
    that he lacks (so he can prepare an answer); anything he should check or change by hand
@@ -209,5 +278,5 @@ version that passes the truthfulness check and explain the shortfall in the note
 
 ## Finish
 
-Report in a few lines: drafts written (company, title, ATS score), jobs below 90 and why, jobs left in the queue for the next run. The PDF resumes and Sheet entries
+Report in a few lines: drafts written (company, title, ATS score, cover letter words), jobs below 90 and why, jobs left in the queue for the next run. The PDF resumes and Sheet entries
 appear after Modal's :55 run.

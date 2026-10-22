@@ -20,6 +20,8 @@ file_path = tool_input.get("file_path", "")
 
 if "output/tailored/" not in file_path:
     sys.exit(0)
+if file_path.endswith(".cover.md"):
+    sys.exit(0)   # cover letters (2026-10-22) are checked by scripts/check_cover_letter.py
 
 content = tool_input.get("content", "")
 ok, reason = validate(content)

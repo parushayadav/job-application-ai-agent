@@ -28,6 +28,10 @@ Draft format: an HTML comment block, then the resume markdown.
     -->
     # Chidvilas Parusha
 
+Since 2026-10-22 the draft also carries the job's cover letter: after the resume, a line
+`<!-- cover-letter -->` and then the letter from "Dear ...," to the signature (see
+split_cover_letter; render_claude_resumes.py builds it as "Chidvilas Parusha Cover Letter.pdf").
+
 A draft for a job that is no longer in the queue may add title:, headline:, company:, link:,
 jd: (the description on one line), matched: and gaps: (comma separated) to its header.
     ...
@@ -54,6 +58,7 @@ BASE_RESUME_FILE_ID = "1TExf6IjEXyxIq5ENDcGfK-ZdUb-jCrjN"  # base_resume.md (Cla
 AWAITING = "awaiting_resume.json"
 QUEUE_DESCRIPTION_CHARS = 8000   # enough to tailor against; keeps the queue file small
 
+COVER_MARKER = "<!-- cover-letter -->"   # draft: resume markdown, this line, then the letter
 FRONT_MATTER = re.compile(r"^\s*<!--\s*claude-resume\s*\n(.*?)-->\s*\n", re.DOTALL)
 
 
@@ -105,6 +110,13 @@ def publish_queue():
         # The queue file was deleted by hand: create a new one (Claude finds it by name).
         upload_file(out, "claude_queue.json", WORKING_FOLDER_ID, "application/json")
     return len(jobs)
+
+
+def split_cover_letter(resume_and_letter):
+    """-> (resume markdown, cover letter text or ""). Drafts written before 2026-10-22 have no
+    cover letter."""
+    resume, sep, letter = resume_and_letter.partition(COVER_MARKER)
+    return resume.strip() + "\n", letter.strip() if sep else ""
 
 
 def parse_draft(text):
